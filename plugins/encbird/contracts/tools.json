@@ -1,0 +1,2406 @@
+{
+  "apiVersion": "1",
+  "status": "backend-aligned",
+  "contractVersion": "1.0.0",
+  "openapiSha256": "f9b5be4ed9702afe5e238c03e58499c191e6176e33222e5e2d814172581102bf",
+  "tools": [
+    {
+      "name": "encbird_get_context",
+      "description": "Read stored learning level without private profile fields.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "dataSource": {
+                "type": "string"
+              },
+              "cefrLevel": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "dataSource",
+              "cefrLevel"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_list_expressions",
+      "description": "List saved expressions; coverage and clipping are explicit.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10
+          },
+          "beforeAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:Z|[+-]\\d{2}:\\d{2})$"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "dataSource": {
+                "type": "string"
+              },
+              "items": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "phrase": {
+                      "type": "string"
+                    },
+                    "meaning": {
+                      "type": "string"
+                    },
+                    "meaningKr": {
+                      "type": "string"
+                    },
+                    "partOfSpeech": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "phrase",
+                    "meaning",
+                    "meaningKr",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "moreMayExist": {
+                "type": "boolean"
+              },
+              "coverage": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "dataSource",
+              "items",
+              "truncated",
+              "moreMayExist",
+              "coverage"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_add_expression",
+      "description": "Request expression registration; obtain explicit payment approval if returned.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "phrase": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "approval": {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": [
+                  "free_trial",
+                  "credits"
+                ],
+                "minLength": 1
+              },
+              "creditAmount": {
+                "type": "integer",
+                "maximum": 1
+              }
+            },
+            "required": [
+              "method",
+              "creditAmount"
+            ],
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "properties": {
+                  "method": {
+                    "const": "free_trial"
+                  },
+                  "creditAmount": {
+                    "const": 0
+                  }
+                },
+                "required": [
+                  "method",
+                  "creditAmount"
+                ]
+              },
+              {
+                "properties": {
+                  "method": {
+                    "const": "credits"
+                  },
+                  "creditAmount": {
+                    "const": 1
+                  }
+                },
+                "required": [
+                  "method",
+                  "creditAmount"
+                ]
+              }
+            ]
+          }
+        },
+        "required": [
+          "phrase",
+          "idempotencyKey"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "dataSource": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "expression": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "phrase": {
+                    "type": "string"
+                  },
+                  "meaning": {
+                    "type": "string"
+                  },
+                  "meaningKr": {
+                    "type": "string"
+                  },
+                  "partOfSpeech": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "synonyms": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "antonyms": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "etymology": {
+                    "type": "string"
+                  },
+                  "usageFit": {
+                    "type": "object",
+                    "properties": {
+                      "business": {
+                        "type": "object",
+                        "properties": {
+                          "frequency": {
+                            "type": "string"
+                          },
+                          "alternatives": {
+                            "type": [
+                              "array",
+                              "null"
+                            ],
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "frequency",
+                          "alternatives"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "daily": {
+                        "type": "object",
+                        "properties": {
+                          "frequency": {
+                            "type": "string"
+                          },
+                          "alternatives": {
+                            "type": [
+                              "array",
+                              "null"
+                            ],
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "frequency",
+                          "alternatives"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "business",
+                      "daily"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "suggestedQuestions": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "phrase",
+                  "meaning",
+                  "meaningKr",
+                  "createdAt",
+                  "status",
+                  "synonyms",
+                  "antonyms",
+                  "usageFit",
+                  "suggestedQuestions"
+                ],
+                "additionalProperties": false
+              },
+              "approval": {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string"
+                  },
+                  "creditAmount": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "method",
+                  "creditAmount"
+                ],
+                "additionalProperties": false
+              },
+              "usedFreeTrial": {
+                "type": "boolean"
+              },
+              "charged": {
+                "type": "boolean"
+              },
+              "freeTrialConsumed": {
+                "type": "boolean"
+              },
+              "replayed": {
+                "type": "boolean"
+              },
+              "quizPublication": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "dataSource",
+              "status",
+              "usedFreeTrial",
+              "charged",
+              "freeTrialConsumed",
+              "replayed",
+              "quizPublication"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_search_expressions",
+      "description": "Search saved phrases and Korean meanings.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "dataSource": {
+                "type": "string"
+              },
+              "items": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "phrase": {
+                      "type": "string"
+                    },
+                    "meaning": {
+                      "type": "string"
+                    },
+                    "meaningKr": {
+                      "type": "string"
+                    },
+                    "partOfSpeech": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "phrase",
+                    "meaning",
+                    "meaningKr",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "moreMayExist": {
+                "type": "boolean"
+              },
+              "coverage": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "dataSource",
+              "items",
+              "truncated",
+              "moreMayExist",
+              "coverage"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_get_expression",
+      "description": "Read stored expression details.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "expressionId": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          }
+        },
+        "required": [
+          "expressionId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "dataSource": {
+                "type": "string"
+              },
+              "expression": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "phrase": {
+                    "type": "string"
+                  },
+                  "meaning": {
+                    "type": "string"
+                  },
+                  "meaningKr": {
+                    "type": "string"
+                  },
+                  "partOfSpeech": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "synonyms": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "antonyms": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "etymology": {
+                    "type": "string"
+                  },
+                  "usageFit": {
+                    "type": "object",
+                    "properties": {
+                      "business": {
+                        "type": "object",
+                        "properties": {
+                          "frequency": {
+                            "type": "string"
+                          },
+                          "alternatives": {
+                            "type": [
+                              "array",
+                              "null"
+                            ],
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "frequency",
+                          "alternatives"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "daily": {
+                        "type": "object",
+                        "properties": {
+                          "frequency": {
+                            "type": "string"
+                          },
+                          "alternatives": {
+                            "type": [
+                              "array",
+                              "null"
+                            ],
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "frequency",
+                          "alternatives"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "business",
+                      "daily"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "suggestedQuestions": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "phrase",
+                  "meaning",
+                  "meaningKr",
+                  "createdAt",
+                  "status",
+                  "synonyms",
+                  "antonyms",
+                  "usageFit",
+                  "suggestedQuestions"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "dataSource",
+              "expression"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_list_review_quizzes",
+      "description": "List selected questions and phrase associations; listing is not completion.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "quizzes": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "quizId": {
+                      "type": "string"
+                    },
+                    "questionRevision": {
+                      "type": "string"
+                    },
+                    "expressionId": {
+                      "type": "string"
+                    },
+                    "phrase": {
+                      "type": "string"
+                    },
+                    "meaning": {
+                      "type": "string"
+                    },
+                    "meaningKr": {
+                      "type": "string"
+                    },
+                    "en": {
+                      "type": "string"
+                    },
+                    "kr": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "completedAt": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "type": "string"
+                    },
+                    "completionMode": {
+                      "type": "string"
+                    },
+                    "canRegister": {
+                      "type": "boolean"
+                    },
+                    "questionType": {
+                      "type": "string"
+                    },
+                    "options": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "quizId",
+                    "questionRevision",
+                    "phrase",
+                    "meaning",
+                    "en",
+                    "kr",
+                    "source",
+                    "completionMode",
+                    "questionType"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "phrases": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "phraseHash": {
+                      "type": "string"
+                    },
+                    "phrase": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "phraseHash",
+                    "phrase"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "quizzes",
+              "phrases"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_submit_quiz_result",
+      "description": "Save actual answer, learner rating 1-4 and assistance for a pinned question revision.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "quizId": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+={0,2}$"
+          },
+          "questionRevision": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[0-9a-fA-F]+$"
+          },
+          "expressionId": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^(?:[A-Za-z0-9_-]+={0,2})?$"
+          },
+          "answer": {
+            "type": "string",
+            "maxLength": 16000,
+            "minLength": 1
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "completed": {
+            "type": "boolean",
+            "const": true
+          },
+          "assistance": {
+            "type": "string",
+            "enum": [
+              "none",
+              "hint",
+              "answer",
+              "unknown"
+            ]
+          },
+          "sourceHost": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1
+          },
+          "sourceSessionId": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1
+          }
+        },
+        "required": [
+          "quizId",
+          "questionRevision",
+          "answer",
+          "rating",
+          "completed",
+          "assistance",
+          "sourceHost",
+          "sourceSessionId",
+          "idempotencyKey"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "resultId": {
+                "type": "string"
+              },
+              "quizId": {
+                "type": "string"
+              },
+              "expressionId": {
+                "type": "string"
+              },
+              "completedAt": {
+                "type": "string"
+              },
+              "rating": {
+                "type": "integer"
+              },
+              "quizStatus": {
+                "type": "string"
+              },
+              "reviewStatus": {
+                "type": "string"
+              },
+              "reviewDueAt": {
+                "type": "string"
+              },
+              "replayed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "resultId",
+              "quizId",
+              "completedAt",
+              "rating",
+              "quizStatus",
+              "reviewStatus",
+              "replayed"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_save_memory",
+      "description": "Save permitted host messages and evidence-grounded learning facts.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operationKey": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "x-maxUtf8Bytes": 160
+          },
+          "sourceHost": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "x-maxUtf8Bytes": 120
+          },
+          "sourceSessionId": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "x-maxUtf8Bytes": 160
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 160
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "assistant",
+                    "generated"
+                  ]
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 4000
+                },
+                "observedAt": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
+                  "description": "Actual observation timestamp; at most five minutes in the future."
+                }
+              },
+              "required": [
+                "id",
+                "role",
+                "content",
+                "observedAt"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 80
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "profile",
+                    "interest",
+                    "work",
+                    "learning"
+                  ]
+                },
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+                  "maxLength": 160,
+                  "x-maxUtf8Bytes": 160
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "state",
+                    "event",
+                    "plan",
+                    "habit",
+                    "weakness",
+                    "strength"
+                  ]
+                },
+                "content": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000,
+                  "x-maxUtf8Bytes": 2000
+                },
+                "occurredOn": {
+                  "type": "string",
+                  "pattern": "^(?:\\d{4}-\\d{2}-\\d{2})?$",
+                  "description": "Optional source-grounded date; future dates require kind plan."
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "messageId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "quote": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4000,
+                        "x-maxUtf8Bytes": 4000
+                      }
+                    },
+                    "required": [
+                      "messageId",
+                      "quote"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "minItems": 1,
+                  "maxItems": 80
+                }
+              },
+              "required": [
+                "category",
+                "key",
+                "kind",
+                "content",
+                "evidence"
+              ],
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "category": {
+                        "const": "learning"
+                      }
+                    },
+                    "required": [
+                      "category"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "weakness",
+                          "strength"
+                        ]
+                      },
+                      "evidence": {
+                        "minItems": 2,
+                        "type": "array"
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "state",
+                          "event",
+                          "plan",
+                          "habit"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ],
+              "description": "Evidence quotes must exactly occur in distinct cited role=user source messages. Learning facts require four actual user messages and two independent evidence messages."
+            },
+            "maxItems": 20
+          }
+        },
+        "required": [
+          "operationKey",
+          "sourceHost",
+          "sourceSessionId",
+          "messages"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "operationId": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "facts": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "factId": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "factId",
+                    "category",
+                    "version",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "operationId",
+              "status",
+              "facts"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_correct_memory",
+      "description": "Correct a versioned external learning fact with new user evidence.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operationKey": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "x-maxUtf8Bytes": 160
+          },
+          "sourceHost": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "x-maxUtf8Bytes": 120
+          },
+          "sourceSessionId": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "x-maxUtf8Bytes": 160
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 160
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "assistant",
+                    "generated"
+                  ]
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 4000
+                },
+                "observedAt": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
+                  "description": "Actual observation timestamp; at most five minutes in the future."
+                }
+              },
+              "required": [
+                "id",
+                "role",
+                "content",
+                "observedAt"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 80
+          },
+          "target": {
+            "type": "object",
+            "properties": {
+              "factId": {
+                "type": "string",
+                "minLength": 64,
+                "maxLength": 64,
+                "pattern": "^[0-9a-fA-F]+$",
+                "x-maxUtf8Bytes": 64
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "profile",
+                  "interest",
+                  "work",
+                  "learning"
+                ]
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "factId",
+              "category",
+              "version"
+            ],
+            "additionalProperties": false
+          },
+          "fact": {
+            "type": "object",
+            "properties": {
+              "category": {
+                "type": "string",
+                "enum": [
+                  "profile",
+                  "interest",
+                  "work",
+                  "learning"
+                ]
+              },
+              "key": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+                "maxLength": 160,
+                "x-maxUtf8Bytes": 160
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "state",
+                  "event",
+                  "plan",
+                  "habit",
+                  "weakness",
+                  "strength"
+                ]
+              },
+              "content": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "x-maxUtf8Bytes": 2000
+              },
+              "occurredOn": {
+                "type": "string",
+                "pattern": "^(?:\\d{4}-\\d{2}-\\d{2})?$",
+                "description": "Optional source-grounded date; future dates require kind plan."
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "messageId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 160
+                    },
+                    "quote": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000,
+                      "x-maxUtf8Bytes": 4000
+                    }
+                  },
+                  "required": [
+                    "messageId",
+                    "quote"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 1,
+                "maxItems": 80
+              }
+            },
+            "required": [
+              "category",
+              "key",
+              "kind",
+              "content",
+              "evidence"
+            ],
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "category": {
+                      "const": "learning"
+                    }
+                  },
+                  "required": [
+                    "category"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "weakness",
+                        "strength"
+                      ]
+                    },
+                    "evidence": {
+                      "minItems": 2,
+                      "type": "array"
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "state",
+                        "event",
+                        "plan",
+                        "habit"
+                      ]
+                    }
+                  }
+                }
+              }
+            ],
+            "description": "Evidence quotes must exactly occur in distinct cited role=user source messages. Learning facts require four actual user messages and two independent evidence messages."
+          }
+        },
+        "required": [
+          "operationKey",
+          "sourceHost",
+          "sourceSessionId",
+          "messages",
+          "target",
+          "fact"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "operationId": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "facts": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "factId": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "factId",
+                    "category",
+                    "version",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "operationId",
+              "status",
+              "facts"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_delete_memory",
+      "description": "Delete a versioned external learning fact and invalidate dependent recommendations.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operationKey": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "x-maxUtf8Bytes": 160
+          },
+          "target": {
+            "type": "object",
+            "properties": {
+              "factId": {
+                "type": "string",
+                "minLength": 64,
+                "maxLength": 64,
+                "pattern": "^[0-9a-fA-F]+$",
+                "x-maxUtf8Bytes": 64
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "profile",
+                  "interest",
+                  "work",
+                  "learning"
+                ]
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "factId",
+              "category",
+              "version"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "operationKey",
+          "target"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "operationId": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "facts": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "factId": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "factId",
+                    "category",
+                    "version",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "operationId",
+              "status",
+              "facts"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_list_suggested_expressions",
+      "description": "Read current internal and external suggested expressions.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "external": {
+                  "type": "object",
+                  "properties": {
+                    "sourceHost": {
+                      "type": "string"
+                    },
+                    "sourceSessionId": {
+                      "type": "string"
+                    },
+                    "evidenceIds": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "observedAt": {
+                      "type": "string"
+                    },
+                    "generatedBy": {
+                      "type": "string"
+                    },
+                    "factRefs": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "factId": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "factId",
+                          "category",
+                          "version"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "invalidated": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "sourceHost",
+                    "sourceSessionId",
+                    "evidenceIds",
+                    "observedAt",
+                    "generatedBy"
+                  ],
+                  "additionalProperties": false
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer"
+                },
+                "phraseHash": {
+                  "type": "string"
+                },
+                "phrase": {
+                  "type": "string"
+                },
+                "meaningKr": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "sourceSessionId": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string"
+                },
+                "phraseOrigin": {
+                  "type": "string",
+                  "enum": [
+                    "user_expression",
+                    "quoted_expression",
+                    "host_generated"
+                  ],
+                  "description": "Recorded expression origin. Omitted for legacy rows; absence does not establish learner usage."
+                }
+              },
+              "required": [
+                "version",
+                "phraseHash",
+                "phrase",
+                "meaningKr",
+                "source",
+                "sourceSessionId",
+                "status",
+                "createdAt",
+                "updatedAt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_save_suggested_expressions",
+      "description": "Save expression candidates with explicit actual-user, quoted, or host-generated origin and referenced learner evidence.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operationKey": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "x-maxUtf8Bytes": 160
+          },
+          "sourceHost": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "x-maxUtf8Bytes": 120
+          },
+          "sourceSessionId": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "x-maxUtf8Bytes": 160
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 160
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "assistant",
+                    "generated"
+                  ]
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 4000
+                },
+                "observedAt": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
+                  "description": "Actual observation timestamp; at most five minutes in the future."
+                }
+              },
+              "required": [
+                "id",
+                "role",
+                "content",
+                "observedAt"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 80
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "phrase": {
+                  "type": "string",
+                  "maxLength": 300,
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 300
+                },
+                "meaningKr": {
+                  "type": "string",
+                  "maxLength": 1000,
+                  "x-maxUtf8Bytes": 1000
+                },
+                "reason": {
+                  "type": "string",
+                  "maxLength": 1000,
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 1000
+                },
+                "evidenceIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "maxItems": 80
+                },
+                "factRefs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "factId": {
+                        "type": "string",
+                        "minLength": 64,
+                        "maxLength": 64,
+                        "pattern": "^[0-9a-fA-F]+$",
+                        "x-maxUtf8Bytes": 64
+                      },
+                      "category": {
+                        "type": "string",
+                        "enum": [
+                          "profile",
+                          "interest",
+                          "work",
+                          "learning"
+                        ]
+                      },
+                      "version": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    },
+                    "required": [
+                      "factId",
+                      "category",
+                      "version"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 20
+                },
+                "phraseOrigin": {
+                  "type": "string",
+                  "enum": [
+                    "user_expression",
+                    "quoted_expression",
+                    "host_generated"
+                  ],
+                  "description": "user_expression: expression actually used by the learner; quoted_expression: expression quoted in an actual learner message; host_generated: host-created wording based on learner intent. The first two must occur in a referenced role=user message.",
+                  "maxLength": 40
+                }
+              },
+              "required": [
+                "phrase",
+                "reason",
+                "evidenceIds",
+                "phraseOrigin"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 20
+          }
+        },
+        "required": [
+          "operationKey",
+          "sourceHost",
+          "sourceSessionId",
+          "messages",
+          "candidates"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "outcomes": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "phraseHash": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "phraseHash",
+                    "version",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "outcomes"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_list_freechat_scenarios",
+      "description": "Read current FreeChat scenario recommendations.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "external": {
+                  "type": "object",
+                  "properties": {
+                    "sourceHost": {
+                      "type": "string"
+                    },
+                    "sourceSessionId": {
+                      "type": "string"
+                    },
+                    "evidenceIds": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "observedAt": {
+                      "type": "string"
+                    },
+                    "generatedBy": {
+                      "type": "string"
+                    },
+                    "factRefs": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "factId": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "factId",
+                          "category",
+                          "version"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "invalidated": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "sourceHost",
+                    "sourceSessionId",
+                    "evidenceIds",
+                    "observedAt",
+                    "generatedBy"
+                  ],
+                  "additionalProperties": false
+                },
+                "version": {
+                  "type": "integer"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "prompt": {
+                  "type": "string"
+                },
+                "targetSkill": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "sourceId": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "prompt",
+                "source",
+                "sourceId",
+                "createdAt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_save_freechat_scenarios",
+      "description": "Save evidenced host-generated scenario candidates without starting a chat.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operationKey": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "x-maxUtf8Bytes": 160
+          },
+          "sourceHost": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "x-maxUtf8Bytes": 120
+          },
+          "sourceSessionId": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "x-maxUtf8Bytes": 160
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 160
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "assistant",
+                    "generated"
+                  ]
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 4000
+                },
+                "observedAt": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
+                  "description": "Actual observation timestamp; at most five minutes in the future."
+                }
+              },
+              "required": [
+                "id",
+                "role",
+                "content",
+                "observedAt"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 80
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 200
+                },
+                "prompt": {
+                  "type": "string",
+                  "maxLength": 2000,
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 2000
+                },
+                "targetSkill": {
+                  "type": "string",
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "x-maxUtf8Bytes": 200
+                },
+                "evidenceIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "maxItems": 80
+                },
+                "factRefs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "factId": {
+                        "type": "string",
+                        "minLength": 64,
+                        "maxLength": 64,
+                        "pattern": "^[0-9a-fA-F]+$",
+                        "x-maxUtf8Bytes": 64
+                      },
+                      "category": {
+                        "type": "string",
+                        "enum": [
+                          "profile",
+                          "interest",
+                          "work",
+                          "learning"
+                        ]
+                      },
+                      "version": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    },
+                    "required": [
+                      "factId",
+                      "category",
+                      "version"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 20
+                }
+              },
+              "required": [
+                "title",
+                "prompt",
+                "targetSkill",
+                "evidenceIds"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 20
+          }
+        },
+        "required": [
+          "operationKey",
+          "sourceHost",
+          "sourceSessionId",
+          "messages",
+          "candidates"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "outcomes": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "outcomes"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "encbird_accept_suggested_expression",
+      "description": "Acknowledge an already registered NORMAL expression and close its version-pinned recommendation without charging.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "phraseHash": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Exact selected candidate version. Explicit zero is allowed for an unchanged legacy candidate."
+          },
+          "registrationKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[!-~]+(?![\\s\\S])",
+            "description": "Exact key from the successful registration attempt (its original idempotencyKey); 1–128 printable ASCII bytes 0x21–0x7e, with no whitespace. Current AddExpressionResult does not echo the key."
+          }
+        },
+        "required": [
+          "phraseHash",
+          "version",
+          "registrationKey"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "phraseHash": {
+                "type": "string"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "const": "saved"
+              }
+            },
+            "required": [
+              "phraseHash",
+              "version",
+              "status"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "routes": {
+    "encbird_get_context": {
+      "method": "GET",
+      "path": "/context",
+      "operationId": "context",
+      "query": [],
+      "pathArguments": {}
+    },
+    "encbird_list_expressions": {
+      "method": "GET",
+      "path": "/expressions",
+      "operationId": "list_expressions",
+      "query": [
+        "limit",
+        "beforeAt"
+      ],
+      "pathArguments": {}
+    },
+    "encbird_add_expression": {
+      "method": "POST",
+      "path": "/expressions",
+      "operationId": "add_expression",
+      "query": [],
+      "pathArguments": {}
+    },
+    "encbird_search_expressions": {
+      "method": "GET",
+      "path": "/expressions/search",
+      "operationId": "search_expressions",
+      "query": [
+        "query",
+        "limit"
+      ],
+      "pathArguments": {}
+    },
+    "encbird_get_expression": {
+      "method": "GET",
+      "path": "/expressions/{id}",
+      "operationId": "get_expression",
+      "query": [],
+      "pathArguments": {
+        "id": "expressionId"
+      }
+    },
+    "encbird_list_review_quizzes": {
+      "method": "GET",
+      "path": "/review-quizzes",
+      "operationId": "review_quizzes",
+      "query": [],
+      "pathArguments": {}
+    },
+    "encbird_submit_quiz_result": {
+      "method": "POST",
+      "path": "/quiz-results",
+      "operationId": "quiz_result",
+      "query": [],
+      "pathArguments": {}
+    },
+    "encbird_save_memory": {
+      "method": "POST",
+      "path": "/memory",
+      "operationId": "memory_update",
+      "query": [],
+      "pathArguments": {}
+    },
+    "encbird_correct_memory": {
+      "method": "POST",
+      "path": "/memory/corrections",
+      "operationId": "memory_correct",
+      "query": [],
+      "pathArguments": {}
+    },
+    "encbird_delete_memory": {
+      "method": "POST",
+      "path": "/memory/deletions",
+      "operationId": "memory_delete",
+      "query": [],
+      "pathArguments": {}
+    },
+    "encbird_list_suggested_expressions": {
+      "method": "GET",
+      "path": "/suggested-expressions",
+      "operationId": "suggested_expressions",
+      "query": [],
+      "pathArguments": {}
+    },
+    "encbird_save_suggested_expressions": {
+      "method": "POST",
+      "path": "/suggested-expressions",
+      "operationId": "suggest_expressions",
+      "query": [],
+      "pathArguments": {}
+    },
+    "encbird_list_freechat_scenarios": {
+      "method": "GET",
+      "path": "/freechat-scenarios",
+      "operationId": "freechat_scenarios",
+      "query": [],
+      "pathArguments": {}
+    },
+    "encbird_save_freechat_scenarios": {
+      "method": "POST",
+      "path": "/freechat-scenarios",
+      "operationId": "suggest_scenarios",
+      "query": [],
+      "pathArguments": {}
+    },
+    "encbird_accept_suggested_expression": {
+      "method": "POST",
+      "path": "/suggested-expressions/accept",
+      "operationId": "accept_suggested_expression",
+      "query": [],
+      "pathArguments": {}
+    }
+  }
+}

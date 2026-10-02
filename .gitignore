@@ -1,0 +1,11 @@
+node_modules/
+.test-tmp/
+coverage/
+*.tgz
+docs/evidence/*.html
+docs/evidence/*.txt
+
+.DS_Store
+.env
+.env.*
+*.log

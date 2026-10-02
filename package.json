@@ -1,0 +1,15 @@
+{
+  "name": "encbird-plugin-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["plugins/encbird"],
+  "scripts": {
+    "build": "npm run build -w plugins/encbird",
+    "typecheck": "npm run typecheck -w plugins/encbird",
+    "test": "npm run test -w plugins/encbird",
+    "validate": "node scripts/validate.mjs",
+    "check": "npm run typecheck && npm run build && npm test && npm run validate"
+  },
+  "engines": {"node": ">=22.12.0"}
+}
