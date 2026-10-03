@@ -1,0 +1,29 @@
+{
+  "name": "EncBird Plugin (Node 24, Alpine)",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/encbird-plugin,type=bind,consistency=cached",
+  "workspaceFolder": "/workspaces/encbird-plugin",
+  "remoteUser": "node",
+  "mounts": [
+    "source=encbird-plugin-node-modules-${devcontainerId},target=/workspaces/encbird-plugin/node_modules,type=volume",
+    "source=encbird-plugin-test-tmp-${devcontainerId},target=/workspaces/encbird-plugin/.test-tmp,type=volume"
+  ],
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "git.autofetch": true,
+        "typescript.tsdk": "node_modules/typescript/lib"
+      },
+      "extensions": [
+        "mhutchie.git-graph",
+        "ChaitanyaShahare.lazygit",
+        "shardulm94.trailing-spaces"
+      ]
+    }
+  },
+  "postCreateCommand": "npm ci --ignore-scripts",
+  "shutdownAction": "stopContainer"
+}

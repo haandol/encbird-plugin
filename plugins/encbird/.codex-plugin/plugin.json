@@ -1,0 +1,43 @@
+{
+  "name": "encbird",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "Collect English expressions and practice with EncBird through your assistant.",
+  "author": {
+    "name": "EncBird",
+    "url": "https://encbird.com"
+  },
+  "homepage": "https://encbird.com",
+  "keywords": [
+    "english",
+    "learning",
+    "expressions",
+    "encbird"
+  ],
+  "skills": "./skills/",
+  "mcpServers": {
+    "encbird": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/dist/index.js"
+      ]
+    }
+  },
+  "interface": {
+    "displayName": "EncBird",
+    "shortDescription": "Practice and collect English expressions",
+    "longDescription": "Connect to EncBird with browser sign-in to use the learning tools available in your installed version.",
+    "developerName": "EncBird",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://encbird.com",
+    "defaultPrompt": [
+      "Help me review my EncBird expressions."
+    ]
+  },
+  "repository": "https://github.com/haandol/encbird-plugin"
+}

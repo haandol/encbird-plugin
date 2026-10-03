@@ -1,0 +1,505 @@
+{
+  "encbird_accept_suggested_expression": {
+    "input": {
+      "phraseHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "version": 0,
+      "registrationKey": "fixture-registration:attempt-1"
+    },
+    "output": {
+      "data": {
+        "phraseHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "version": 0,
+        "status": "saved"
+      }
+    }
+  },
+  "encbird_add_expression": {
+    "input": {
+      "phrase": "look up",
+      "idempotencyKey": "fixture-registration:attempt-1",
+      "approval": {
+        "method": "free_trial",
+        "creditAmount": 0
+      }
+    },
+    "output": {
+      "data": {
+        "dataSource": "encbird",
+        "status": "registered",
+        "expression": {
+          "id": "example-1",
+          "phrase": "look up",
+          "meaning": "search for information",
+          "meaningKr": "찾아보다",
+          "partOfSpeech": "fixture-value",
+          "createdAt": "2026-10-01T12:00:00Z",
+          "status": "NORMAL",
+          "synonyms": [
+            "fixture-value"
+          ],
+          "antonyms": [
+            "fixture-value"
+          ],
+          "etymology": "fixture-value",
+          "usageFit": {
+            "business": {
+              "frequency": "fixture-value",
+              "alternatives": [
+                "fixture-value"
+              ]
+            },
+            "daily": {
+              "frequency": "fixture-value",
+              "alternatives": [
+                "fixture-value"
+              ]
+            }
+          },
+          "suggestedQuestions": [
+            "fixture-value"
+          ]
+        },
+        "approval": {
+          "method": "free_trial",
+          "creditAmount": 0
+        },
+        "usedFreeTrial": false,
+        "charged": false,
+        "freeTrialConsumed": false,
+        "replayed": false,
+        "quizPublication": "pending"
+      }
+    }
+  },
+  "encbird_correct_memory": {
+    "input": {
+      "operationKey": "fixture-operation",
+      "sourceHost": "codex",
+      "sourceSessionId": "fixture-session",
+      "messages": [
+        {
+          "id": "message-1",
+          "role": "user",
+          "content": "I enjoy hiking.",
+          "observedAt": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "target": {
+        "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "category": "interest",
+        "version": 1
+      },
+      "fact": {
+        "category": "interest",
+        "key": "interest.hiking",
+        "kind": "habit",
+        "content": "I enjoy hiking.",
+        "occurredOn": "2026-10-01",
+        "evidence": [
+          {
+            "messageId": "message-1",
+            "quote": "I enjoy hiking."
+          }
+        ]
+      }
+    },
+    "output": {
+      "data": {
+        "operationId": "fixture-value",
+        "status": "stored",
+        "facts": [
+          {
+            "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "category": "interest",
+            "version": 1,
+            "status": "stored"
+          }
+        ]
+      }
+    }
+  },
+  "encbird_delete_memory": {
+    "input": {
+      "operationKey": "fixture-operation",
+      "target": {
+        "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "category": "interest",
+        "version": 1
+      }
+    },
+    "output": {
+      "data": {
+        "operationId": "fixture-value",
+        "status": "stored",
+        "facts": [
+          {
+            "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "category": "interest",
+            "version": 1,
+            "status": "stored"
+          }
+        ]
+      }
+    }
+  },
+  "encbird_get_context": {
+    "input": {},
+    "output": {
+      "data": {
+        "cefrLevel": "B1",
+        "dataSource": "encbird"
+      }
+    }
+  },
+  "encbird_get_expression": {
+    "input": {
+      "expressionId": "example-1"
+    },
+    "output": {
+      "data": {
+        "dataSource": "encbird",
+        "expression": {
+          "id": "example-1",
+          "phrase": "look up",
+          "meaning": "search for information",
+          "meaningKr": "찾아보다",
+          "partOfSpeech": "fixture-value",
+          "createdAt": "2026-10-01T12:00:00Z",
+          "status": "NORMAL",
+          "synonyms": [
+            "fixture-value"
+          ],
+          "antonyms": [
+            "fixture-value"
+          ],
+          "etymology": "fixture-value",
+          "usageFit": {
+            "business": {
+              "frequency": "fixture-value",
+              "alternatives": [
+                "fixture-value"
+              ]
+            },
+            "daily": {
+              "frequency": "fixture-value",
+              "alternatives": [
+                "fixture-value"
+              ]
+            }
+          },
+          "suggestedQuestions": [
+            "fixture-value"
+          ]
+        }
+      }
+    }
+  },
+  "encbird_list_expressions": {
+    "input": {
+      "limit": 1,
+      "beforeAt": "2026-10-01T12:00:00Z"
+    },
+    "output": {
+      "data": {
+        "dataSource": "encbird",
+        "items": [
+          {
+            "id": "example-1",
+            "phrase": "look up",
+            "meaning": "search for information",
+            "meaningKr": "찾아보다",
+            "partOfSpeech": "fixture-value",
+            "createdAt": "2026-10-01T12:00:00Z"
+          }
+        ],
+        "truncated": false,
+        "moreMayExist": false,
+        "coverage": "fixture-value"
+      }
+    }
+  },
+  "encbird_list_freechat_scenarios": {
+    "input": {},
+    "output": {
+      "data": [
+        {
+          "external": {
+            "sourceHost": "codex",
+            "sourceSessionId": "fixture-session",
+            "evidenceIds": [
+              "fixture-value"
+            ],
+            "observedAt": "2026-10-01T12:00:00Z",
+            "generatedBy": "host",
+            "factRefs": [
+              {
+                "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "category": "interest",
+                "version": 1
+              }
+            ]
+          },
+          "version": 1,
+          "id": "example-1",
+          "title": "Discuss hiking",
+          "prompt": "Discuss a recent hike.",
+          "targetSkill": "describing experiences",
+          "source": "external_host",
+          "sourceId": "fixture-value",
+          "createdAt": "2026-10-01T12:00:00Z"
+        }
+      ]
+    }
+  },
+  "encbird_list_review_quizzes": {
+    "input": {},
+    "output": {
+      "data": {
+        "quizzes": [
+          {
+            "quizId": "quiz-1",
+            "questionRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "expressionId": "example-1",
+            "phrase": "look up",
+            "meaning": "search for information",
+            "meaningKr": "찾아보다",
+            "en": "I look up the trail.",
+            "kr": "나는 등산로를 찾아본다.",
+            "createdAt": "2026-10-01T12:00:00Z",
+            "completedAt": "2026-10-01T12:00:00Z",
+            "source": "external_host",
+            "completionMode": "personal",
+            "questionType": "translation",
+            "options": [
+              "fixture-value"
+            ]
+          }
+        ],
+        "phrases": [
+          {
+            "phraseHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "phrase": "look up"
+          }
+        ]
+      }
+    }
+  },
+  "encbird_list_suggested_expressions": {
+    "input": {},
+    "output": {
+      "data": [
+        {
+          "phraseOrigin": "host_generated",
+          "external": {
+            "sourceHost": "codex",
+            "sourceSessionId": "fixture-session",
+            "evidenceIds": [
+              "fixture-value"
+            ],
+            "observedAt": "2026-10-01T12:00:00Z",
+            "generatedBy": "host",
+            "factRefs": [
+              {
+                "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "category": "interest",
+                "version": 1
+              }
+            ]
+          },
+          "reason": "Practice a useful expression.",
+          "version": 1,
+          "phraseHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "phrase": "look up",
+          "meaningKr": "찾아보다",
+          "source": "external_host",
+          "sourceSessionId": "fixture-session",
+          "status": "stored",
+          "createdAt": "2026-10-01T12:00:00Z",
+          "updatedAt": "2026-10-01T12:00:00Z"
+        }
+      ]
+    }
+  },
+  "encbird_save_freechat_scenarios": {
+    "input": {
+      "operationKey": "fixture-operation",
+      "sourceHost": "codex",
+      "sourceSessionId": "fixture-session",
+      "messages": [
+        {
+          "id": "message-1",
+          "role": "user",
+          "content": "I enjoy hiking.",
+          "observedAt": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "candidates": [
+        {
+          "title": "Discuss hiking",
+          "prompt": "Discuss a recent hike.",
+          "targetSkill": "describing experiences",
+          "evidenceIds": [
+            "message-1"
+          ],
+          "factRefs": [
+            {
+              "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "category": "interest",
+              "version": 1
+            }
+          ]
+        }
+      ]
+    },
+    "output": {
+      "data": {
+        "outcomes": [
+          {
+            "id": "example-1",
+            "version": 1,
+            "status": "stored"
+          }
+        ]
+      }
+    }
+  },
+  "encbird_save_memory": {
+    "input": {
+      "operationKey": "fixture-operation",
+      "sourceHost": "codex",
+      "sourceSessionId": "fixture-session",
+      "messages": [
+        {
+          "id": "message-1",
+          "role": "user",
+          "content": "I enjoy hiking.",
+          "observedAt": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "facts": [
+        {
+          "category": "interest",
+          "key": "interest.hiking",
+          "kind": "habit",
+          "content": "I enjoy hiking.",
+          "occurredOn": "2026-10-01",
+          "evidence": [
+            {
+              "messageId": "message-1",
+              "quote": "I enjoy hiking."
+            }
+          ]
+        }
+      ]
+    },
+    "output": {
+      "data": {
+        "operationId": "fixture-value",
+        "status": "stored",
+        "facts": [
+          {
+            "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "category": "interest",
+            "version": 1,
+            "status": "stored"
+          }
+        ]
+      }
+    }
+  },
+  "encbird_save_suggested_expressions": {
+    "input": {
+      "operationKey": "fixture-operation",
+      "sourceHost": "codex",
+      "sourceSessionId": "fixture-session",
+      "messages": [
+        {
+          "id": "message-1",
+          "role": "user",
+          "content": "I enjoy hiking.",
+          "observedAt": "2026-10-01T12:00:00Z"
+        }
+      ],
+      "candidates": [
+        {
+          "phraseOrigin": "host_generated",
+          "phrase": "look up",
+          "meaningKr": "찾아보다",
+          "reason": "Practice a useful expression.",
+          "evidenceIds": [
+            "message-1"
+          ],
+          "factRefs": [
+            {
+              "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "category": "interest",
+              "version": 1
+            }
+          ]
+        }
+      ]
+    },
+    "output": {
+      "data": {
+        "outcomes": [
+          {
+            "phraseHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "version": 1,
+            "status": "stored"
+          }
+        ]
+      }
+    }
+  },
+  "encbird_search_expressions": {
+    "input": {
+      "query": "look up",
+      "limit": 1
+    },
+    "output": {
+      "data": {
+        "dataSource": "encbird",
+        "items": [
+          {
+            "id": "example-1",
+            "phrase": "look up",
+            "meaning": "search for information",
+            "meaningKr": "찾아보다",
+            "partOfSpeech": "fixture-value",
+            "createdAt": "2026-10-01T12:00:00Z"
+          }
+        ],
+        "truncated": false,
+        "moreMayExist": false,
+        "coverage": "fixture-value"
+      }
+    }
+  },
+  "encbird_submit_quiz_result": {
+    "input": {
+      "quizId": "quiz-1",
+      "questionRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expressionId": "example-1",
+      "answer": "I look up the trail.",
+      "rating": 1,
+      "completed": true,
+      "assistance": "none",
+      "sourceHost": "codex",
+      "sourceSessionId": "fixture-session",
+      "idempotencyKey": "fixture-operation"
+    },
+    "output": {
+      "data": {
+        "resultId": "fixture-value",
+        "quizId": "quiz-1",
+        "expressionId": "example-1",
+        "completedAt": "2026-10-01T12:00:00Z",
+        "rating": 1,
+        "quizStatus": "recorded",
+        "reviewStatus": "applied",
+        "reviewDueAt": "2026-10-02T12:00:00Z",
+        "replayed": false
+      }
+    }
+  }
+}

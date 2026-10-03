@@ -1,0 +1,20 @@
+{
+  "name": "encbird",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "Collect English expressions and practice with EncBird through your assistant.",
+  "author": {
+    "name": "EncBird",
+    "url": "https://encbird.com"
+  },
+  "homepage": "https://encbird.com",
+  "keywords": [
+    "english",
+    "learning",
+    "expressions",
+    "encbird"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "repository": "https://github.com/haandol/encbird-plugin"
+}
