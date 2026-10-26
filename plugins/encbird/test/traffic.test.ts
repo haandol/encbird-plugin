@@ -88,16 +88,18 @@ test('overload preserves public error codes while withholding diagnostic text', 
   });
 });
 
-test('Retry-After survives a timeout while reading an overloaded response body', async t => {
-  const server = createServer((_req, res) => {
-    res.writeHead(503, { 'retry-after': '45' }); res.write('{');
+for (const status of [429, 503]) {
+  test(`${status} Retry-After survives a timeout while reading an overloaded response body`, async t => {
+    const server = createServer((_req, res) => {
+      res.writeHead(status, { 'retry-after': '45' }); res.write('{');
+    });
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => { server.closeAllConnections(); server.close(); });
+    const address = server.address() as { port: number };
+    const response = await requestJson(`http://127.0.0.1:${address.port}`, {}, 100);
+    assert.equal(response.status, status); assert.equal(response.retryAfterSeconds, 45);
   });
-  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
-  t.after(() => { server.closeAllConnections(); server.close(); });
-  const address = server.address() as { port: number };
-  const response = await requestJson(`http://127.0.0.1:${address.port}`, {}, 100);
-  assert.equal(response.status, 503); assert.equal(response.retryAfterSeconds, 45);
-});
+}
 
 test('remote MCP negotiation and tool execution share the per-profile HTTP request budget', async t => {
   const m = await mock(); t.after(() => m.close()); await m.login();

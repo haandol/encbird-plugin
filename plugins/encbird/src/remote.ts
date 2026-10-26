@@ -6,6 +6,7 @@ import { SafeError, uncertainOutcome } from './errors.js';
 import { object, serviceUrl } from './http.js';
 import { apiError } from './api-errors.js';
 import { retryAfterSeconds } from './traffic.js';
+import { readBoundedBody } from './body.js';
 
 export function remoteMcpUrl(base: string): string {
   return new URL('/mcp', validateBase(base)).href;
@@ -37,22 +38,6 @@ function toolEnvelope(result: CallToolResult): Record<string, unknown> {
   if (Object.hasOwn(value, 'error')) throw remoteError(value);
   if (!Object.hasOwn(value, 'data')) throw new SafeError('INVALID_RESPONSE', `The MCP result did not contain an EncBird data envelope. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
   return value;
-}
-
-async function boundedBody(response: Response): Promise<string> {
-  const chunks: Uint8Array[] = [];
-  const reader = response.body?.getReader();
-  let size = 0;
-  if (reader) {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.length;
-      if (size > 1_048_576) { await reader.cancel(); throw new SafeError('INVALID_RESPONSE', `The remote MCP response exceeded its size limit. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`); }
-      chunks.push(value);
-    }
-  }
-  return Buffer.concat(chunks).toString('utf8');
 }
 
 export async function callRemoteTool(base: string, currentToken: () => Promise<string>, name: string,
@@ -94,7 +79,11 @@ export async function callRemoteTool(base: string, currentToken: () => Promise<s
       const overloaded = response.status === 429 || response.status === 503;
       const pause = overloaded ? retryAfterSeconds(response.headers.get('retry-after')) : undefined;
       let raw: string;
-      try { raw = await boundedBody(response); }
+      try {
+        const body = await readBoundedBody(response.body);
+        if (body.kind === 'too-large') throw new SafeError('INVALID_RESPONSE', `The remote MCP response exceeded its size limit. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
+        raw = body.text;
+      }
       catch (error) {
         if (overloaded) throw remoteError(undefined, 'MCP_HTTP_ERROR', response.status, pause);
         throw error;

@@ -1,8 +1,8 @@
 {
   "node": ">=22.12.0",
   "contractsSha256": "373c36c73535b93c5e187f7011493ddab626c369b45569fd9073db5f0ebd438d",
-  "bundleSha256": "b65ec9d43e3918ee2d563cd240c31ec73ca840ce3b6ec347d3c1d848e0369391",
-  "cliSha256": "8f3db77eefffb7fdfb9a19551c8ac7afe7e677d3811281c60f92925f90da839f",
+  "bundleSha256": "6aba959aae27b1d4be7b6bae64fde187fee2d240c0784148dac676e9c98db266",
+  "cliSha256": "1e43e1be56d0c612a58cb2247ea6702ba57817efa6e274f6dea1bc132a683576",
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.31.0",
     "ajv": "8.20.0",
@@ -267,6 +267,7 @@
     "../../node_modules/@modelcontextprotocol/sdk/dist/esm/server/index.js",
     "src/errors.ts",
     "src/traffic.ts",
+    "src/body.ts",
     "src/http.ts",
     "src/config.ts",
     "src/api-errors.ts",

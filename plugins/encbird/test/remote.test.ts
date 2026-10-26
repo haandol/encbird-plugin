@@ -167,13 +167,15 @@ test('an overloaded initialization acknowledgement stops before any learning cal
   assert.deepEqual(f.requests.map(r => r.body.method), ['initialize', 'notifications/initialized']);
 });
 
-test('remote overload retains Retry-After when its response body stalls', async t => {
-  const f = await serverFixture(); t.after(() => f.close());
-  f.options.call = (_request, response) => { response.writeHead(503, { 'retry-after': '45' }); response.write('{'); };
-  await assert.rejects(callRemoteTool(f.base, async () => 'token', 'encbird_get_context', {}, 100),
-    { code: 'SERVICE_UNAVAILABLE', retryAfterSeconds: 45 });
-  assert.equal(f.requests.filter(r => r.body.method === 'tools/call').length, 1);
-});
+for (const status of [429, 503]) {
+  test(`remote ${status} retains Retry-After when its response body stalls`, async t => {
+    const f = await serverFixture(); t.after(() => f.close());
+    f.options.call = (_request, response) => { response.writeHead(status, { 'retry-after': '45' }); response.write('{'); };
+    await assert.rejects(callRemoteTool(f.base, async () => 'token', 'encbird_get_context', {}, 100),
+      { code: status === 429 ? 'RATE_LIMITED' : 'SERVICE_UNAVAILABLE', retryAfterSeconds: 45 });
+    assert.equal(f.requests.filter(r => r.body.method === 'tools/call').length, 1);
+  });
+}
 
 
 for (const encoding of ['structured', 'text', 'rpc-data']) {

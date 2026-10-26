@@ -1,5 +1,6 @@
 import { SafeError, uncertainOutcome } from './errors.js';
 import { retryAfterSeconds } from './traffic.js';
+import { readBoundedBody } from './body.js';
 
 export function serviceUrl(value: unknown): URL {
   try {
@@ -24,23 +25,12 @@ export async function requestJson(url: string, init: RequestInit = {}, timeoutMs
       await response.body?.cancel().catch(() => {});
       return result(null);
     }
-    const reader = response.body?.getReader();
-    const chunks: Uint8Array[] = [];
-    let size = 0;
-    if (reader) {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        size += value.length;
-        if (size > 1_048_576) {
-          await reader.cancel();
-          if (pause || (errorBodyOptional && !response.ok)) return result({});
-          throw new SafeError('INVALID_RESPONSE', `The service response exceeded the size limit. Ask the operator to repair the response before retrying. ${uncertainOutcome}`);
-        }
-        chunks.push(value);
-      }
+    const body = await readBoundedBody(response.body);
+    if (body.kind === 'too-large') {
+      if (pause || (errorBodyOptional && !response.ok)) return result({});
+      throw new SafeError('INVALID_RESPONSE', `The service response exceeded the size limit. Ask the operator to repair the response before retrying. ${uncertainOutcome}`);
     }
-    const raw = Buffer.concat(chunks).toString('utf8');
+    const raw = body.text;
     if (!raw && response.status >= 200 && response.status < 300) return { status: response.status, body: null };
     try { return result(JSON.parse(raw)); }
     catch {

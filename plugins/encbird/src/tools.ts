@@ -66,7 +66,7 @@ export class LearningTools {
     if (!validator) throw new SafeError('TOOL_UNAVAILABLE', 'This tool is not available in the installed contract. Discover available tools and choose one that supports the learner request; do not invent tool names or substitute direct API calls.');
     if (!validator(input) || Object.hasOwn(input, 'userId')) throw new SafeError('INVALID_ARGUMENTS', 'Tool arguments do not match the installed input schema. Discover the tool schema and correct required fields, types, and limits before calling it again; never supply userId, tokens, or invented approval. This call sent no request.');
   }
-  async call(auth: Auth, name: string, input: Record<string, unknown> = {}) {
+  async call(auth: Pick<Auth, 'connect' | 'disconnect' | 'callLearningTool' | 'secrets'>, name: string, input: Record<string, unknown> = {}) {
     this.validateInput(name, input);
     if (name === 'encbird_connect') return auth.connect();
     if (name === 'encbird_disconnect') return auth.disconnect();

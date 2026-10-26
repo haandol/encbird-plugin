@@ -9791,6 +9791,27 @@ function retryAfterSeconds(header, now = Date.now()) {
   return 30;
 }
 
+// src/body.ts
+var MAX_RESPONSE_BYTES = 1048576;
+async function readBoundedBody(body) {
+  const reader = body?.getReader();
+  const chunks = [];
+  let size = 0;
+  if (reader) {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > MAX_RESPONSE_BYTES) {
+        await reader.cancel();
+        return { kind: "too-large" };
+      }
+      chunks.push(value);
+    }
+  }
+  return { kind: "complete", text: Buffer.concat(chunks).toString("utf8") };
+}
+
 // src/http.ts
 function serviceUrl(value) {
   try {
@@ -9810,9 +9831,9 @@ async function requestJson(url2, init = {}, timeoutMs = 15e3, errorBodyOptional 
   try {
     response = await fetch(url2, { ...init, redirect: "error", signal: AbortSignal.timeout(timeoutMs) });
     const pause = response.status === 429 || response.status === 503;
-    const result = (body) => ({
+    const result = (body2) => ({
       status: response.status,
-      body,
+      body: body2,
       ...pause ? { retryAfterSeconds: retryAfterSeconds(response.headers.get("retry-after")) } : {}
     });
     if (errorBodyOptional && response.status === 401) {
@@ -9820,23 +9841,12 @@ async function requestJson(url2, init = {}, timeoutMs = 15e3, errorBodyOptional 
       });
       return result(null);
     }
-    const reader = response.body?.getReader();
-    const chunks = [];
-    let size = 0;
-    if (reader) {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        size += value.length;
-        if (size > 1048576) {
-          await reader.cancel();
-          if (pause || errorBodyOptional && !response.ok) return result({});
-          throw new SafeError("INVALID_RESPONSE", `The service response exceeded the size limit. Ask the operator to repair the response before retrying. ${uncertainOutcome}`);
-        }
-        chunks.push(value);
-      }
+    const body = await readBoundedBody(response.body);
+    if (body.kind === "too-large") {
+      if (pause || errorBodyOptional && !response.ok) return result({});
+      throw new SafeError("INVALID_RESPONSE", `The service response exceeded the size limit. Ask the operator to repair the response before retrying. ${uncertainOutcome}`);
     }
-    const raw = Buffer.concat(chunks).toString("utf8");
+    const raw = body.text;
     if (!raw && response.status >= 200 && response.status < 300) return { status: response.status, body: null };
     try {
       return result(JSON.parse(raw));
@@ -22353,24 +22363,6 @@ function toolEnvelope(result) {
   if (!Object.hasOwn(value, "data")) throw new SafeError("INVALID_RESPONSE", `The MCP result did not contain an EncBird data envelope. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
   return value;
 }
-async function boundedBody(response) {
-  const chunks = [];
-  const reader = response.body?.getReader();
-  let size = 0;
-  if (reader) {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.length;
-      if (size > 1048576) {
-        await reader.cancel();
-        throw new SafeError("INVALID_RESPONSE", `The remote MCP response exceeded its size limit. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
-      }
-      chunks.push(value);
-    }
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
 async function callRemoteTool(base, currentToken, name, args, timeoutMs = 15e3) {
   const endpoint = remoteMcpUrl(base);
   const client = new Client({ name: "encbird-stdio-bridge", version: "0.1.0" }, { capabilities: {} });
@@ -22411,7 +22403,9 @@ async function callRemoteTool(base, currentToken, name, args, timeoutMs = 15e3) 
       const pause = overloaded ? retryAfterSeconds(response.headers.get("retry-after")) : void 0;
       let raw;
       try {
-        raw = await boundedBody(response);
+        const body2 = await readBoundedBody(response.body);
+        if (body2.kind === "too-large") throw new SafeError("INVALID_RESPONSE", `The remote MCP response exceeded its size limit. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
+        raw = body2.text;
       } catch (error2) {
         if (overloaded) throw remoteError(void 0, "MCP_HTTP_ERROR", response.status, pause);
         throw error2;
