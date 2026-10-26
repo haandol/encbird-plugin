@@ -26,9 +26,11 @@ assert.equal((await json('.agents/plugins/marketplace.json', root)).plugins[0].s
 assert.equal((await json('.claude-plugin/marketplace.json', root)).plugins[0].source, './plugins/encbird');
 const contract = await json('contracts/tools.json');
 assert.equal(contract.status, 'backend-aligned');
+assert.equal(contract.contractVersion, '3.0.0');
 const canonicalRaw = await readFile(new URL('contracts/openapi.json', plugin));
 const canonical = JSON.parse(canonicalRaw);
 assert.equal(canonical.openapi, '3.1.0');
+assert.deepEqual(Object.keys(canonical).sort(), ['components', 'info', 'jsonSchemaDialect', 'openapi', 'paths', 'servers']);
 assert.equal(contract.openapiSha256, createHash('sha256').update(canonicalRaw).digest('hex'));
 const expectedTools = [], expectedRoutes = {};
 for (const [path, operations] of Object.entries(canonical.paths)) {
@@ -48,13 +50,29 @@ for (const [path, operations] of Object.entries(canonical.paths)) {
     };
   }
 }
-assert.equal(expectedTools.length, 15);
+assert.equal(expectedTools.length, 12);
+assert.deepEqual(Object.keys(canonical.paths).filter(path => path.startsWith('/memory')).sort(), ['/memory-candidates', '/memory-candidates/{id}']);
+assert.deepEqual(contract.tools.filter(tool => tool.name.includes('memory')).map(tool => tool.name).sort(), ['encbird_get_memory_candidate_status', 'encbird_submit_memory_candidates']);
+for (const name of ['encbird_save_suggested_expressions', 'encbird_save_freechat_scenarios']) {
+  assert.ok(!contract.tools.some(tool => tool.name === name), 'Host-generated material saves are unavailable');
+}
+assert.equal(canonical.paths['/suggested-expressions'].post, undefined);
+assert.equal(canonical.paths['/freechat-scenarios'].post, undefined);
+const assertNoFactRefs = value => {
+  if (!value || typeof value !== 'object') return;
+  assert.ok(!Object.hasOwn(value, 'factRefs'), 'Memory references are not part of the public contract');
+  assert.ok(!Array.isArray(value.required) || !value.required.includes('factRefs'), 'Memory references cannot be required');
+  Object.values(value).forEach(assertNoFactRefs);
+};
+assertNoFactRefs(contract);
 assert.deepEqual(contract.tools, expectedTools);
 assert.deepEqual(contract.routes, expectedRoutes);
 const contractAjv = new Ajv2020({ strict: true });
 contractAjv.addKeyword({ keyword: 'x-maxUtf8Bytes', type: 'string', schemaType: 'number', validate: (limit, value) => Buffer.byteLength(value, 'utf8') <= limit });
 for (const tool of contract.tools) { contractAjv.compile(tool.inputSchema); contractAjv.compile(tool.outputSchema); assert.equal(tool.inputSchema.additionalProperties, false); }
 const samples = await json('contracts/serialization-samples.json');
+assertNoFactRefs(samples);
+assert.deepEqual(Object.keys(samples).sort(), contract.tools.map(tool => tool.name).sort());
 for (const tool of contract.tools) {
   assert.ok(contractAjv.compile(tool.inputSchema)(samples[tool.name].input), `${tool.name}: request serialization sample`);
   assert.ok(contractAjv.compile(tool.outputSchema)(samples[tool.name].output), `${tool.name}: response serialization sample`);

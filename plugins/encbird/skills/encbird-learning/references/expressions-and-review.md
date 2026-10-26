@@ -4,9 +4,11 @@ Read this reference when searching or registering expressions, or recording quiz
 
 ## Expression dictionary
 
-Context returns only `dataSource` and `cefrLevel`, not a private profile or a complete memory history. Expression lists/search return `items`, `truncated`, `moreMayExist`, and `coverage`. Report those limits instead of claiming exhaustive search. Read details with `expressionId`; the result is `data.expression`.
+Context returns only `dataSource`, `name`, and `cefrLevel`, not a private profile or a complete memory history. Expression lists/search return `items`, `truncated`, `moreMayExist`, and `coverage`. Report those limits instead of claiming exhaustive search. Read details with `expressionId`; the result is `data.expression`.
 
 Keep the expression dictionary central. Registration accepts `phrase` and a stable `idempotencyKey`. A result with `status: approval_required` is a preview, not registration. Show the returned `approval.method` and `creditAmount`, ask for explicit approval of that exact use, and only then resubmit the same phrase/key with the returned approval object. A free trial uses `free_trial` with 0 credits; credits uses `credits` with 1 credit. Never manufacture approval or infer it from a practice request. Report `charged`, `freeTrialConsumed`, and `quizPublication` as returned; a pending quiz publication does not mean a quiz is ready.
+
+If `NOT_ENOUGH_CREDIT` is returned, tell the learner credits are insufficient and ask them to top up in EncBird before any explicit retry. Do not keep retrying an unchanged balance, infer a balance, switch payment methods, or change the original key and approval. Other errors provide their own recovery steps; a failed or uncertain registration must never be automatically replayed.
 
 ## Recording quiz attempts
 

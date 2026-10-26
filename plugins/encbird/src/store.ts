@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { homedir, hostname } from 'node:os';
 import lockfile from 'proper-lockfile';
-import { SafeError, Secrets } from './errors.js';
+import { storageRecovery, uncertainOutcome, SafeError, Secrets } from './errors.js';
 import { validateOAuth, type OAuthConfig } from './config.js';
 import { validTraffic, type TrafficState } from './traffic.js';
 
@@ -25,6 +25,13 @@ export interface Credentials extends Grant {
   traffic?: TrafficState;
 }
 export interface Transaction { load(): Promise<Credentials | undefined>; save(value?: Credentials): Promise<void> }
+async function storageIO<T>(action: string, fn: () => Promise<T>): Promise<T> {
+  try { return await fn(); }
+  catch (error) {
+    if (error instanceof SafeError) throw error;
+    throw new SafeError('INTERNAL_ERROR', `The plugin could not ${action}. ${storageRecovery} ${uncertainOutcome}`);
+  }
+}
 export class CredentialStore {
   readonly directory: string;
   readonly path: string;
@@ -37,14 +44,16 @@ export class CredentialStore {
     const stat = await lstat(path);
     if (stat.isSymbolicLink() || (directory ? !stat.isDirectory() : !stat.isFile()) ||
         (stat.mode & 0o077) !== 0 || stat.uid !== process.getuid?.() || (!directory && stat.nlink !== 1)) {
-      throw new SafeError('UNSAFE_CREDENTIALS', 'Credential storage must be private, owned by this user, and free of symbolic links.');
+      throw new SafeError('UNSAFE_CREDENTIALS', `Credential storage failed its ownership, permissions, file type, or link safety check. ${storageRecovery}`);
     }
   }
   async withLock<T>(fn: (transaction: Transaction) => Promise<T>): Promise<T> {
-    if (process.platform === 'win32') throw new SafeError('UNSUPPORTED_PLATFORM', 'Private credential storage currently supports macOS and Linux.');
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
-    await this.check(this.directory, true);
-    if (await realpath(this.directory) !== this.directory) throw new SafeError('UNSAFE_CREDENTIALS', 'Use a canonical credential directory without symbolic links.');
+    if (process.platform === 'win32') throw new SafeError('UNSUPPORTED_PLATFORM', 'Private credential storage requires macOS or Linux. Use a supported local desktop before connecting; do not move credential files between machines or bypass storage checks.');
+    await storageIO('prepare private credential storage', async () => {
+      await mkdir(this.directory, { recursive: true, mode: 0o700 });
+      await this.check(this.directory, true);
+      if (await realpath(this.directory) !== this.directory) throw new SafeError('UNSAFE_CREDENTIALS', `The credential directory resolves through a symbolic link. Ask the local operator to restore its canonical path without abandoning pending cleanup. ${storageRecovery}`);
+    });
     let compromised = false;
     let release: () => Promise<void>;
     try {
@@ -53,18 +62,19 @@ export class CredentialStore {
         retries: { retries: 8, minTimeout: 25, maxTimeout: 250 },
         onCompromised: () => { compromised = true; },
       });
-    } catch { throw new SafeError('AUTH_BUSY', 'Another EncBird process is updating this connection. Retry shortly.'); }
-    const assertLock = () => { if (compromised) throw new SafeError('AUTH_LOCK_LOST', 'Credential lock was lost. Reconnect before continuing.'); };
+    } catch { throw new SafeError('AUTH_BUSY', 'The connection lock could not be acquired. Let any ongoing sign-in or connection operation finish, then retry. If contention persists, ask the local operator to inspect storage and process ownership; do not delete lock or credential files.'); }
+    const assertLock = () => { if (compromised) throw new SafeError('AUTH_LOCK_LOST', 'The connection lock was lost; credential updates and any write outcome may be uncertain. Stop learning calls and ask the local operator to resolve competing processes and inspect storage. Preserve lock and credential files; after repair, check existing results and use encbird_disconnect for retained cleanup.'); };
     const transaction: Transaction = {
-      load: async () => {
+      load: () => storageIO('read the private connection record', async () => {
         assertLock();
         try { await this.check(this.path); }
         catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error; }
         const file = await open(this.path, constants.O_RDONLY | constants.O_NOFOLLOW);
         try {
-          const stat = await file.stat();
+          const stat = await storageIO('inspect the private connection record', () => file.stat());
           if (stat.size > 1_048_576) throw new Error();
-          const value = JSON.parse(await file.readFile('utf8')) as Credentials;
+          const raw = await storageIO('read the private connection record', () => file.readFile('utf8'));
+          const value = JSON.parse(raw) as Credentials;
           if (value.version !== 1 || !['active', 'pending', 'disabled'].includes(value.status) ||
               !Number.isFinite(value.expiresAt) ||
               [value.accessToken, value.refreshToken, value.subject, value.connectionId].some(v => v !== undefined && typeof v !== 'string') ||
@@ -94,10 +104,12 @@ export class CredentialStore {
           }
           if (value.status === 'active' && (value.recovery || value.pendingGrants?.length)) throw new Error();
           return value;
-        } catch { throw new SafeError('INVALID_CREDENTIALS', 'Credential storage is invalid. Restore or remove it locally before reconnecting.'); }
+        } catch (error) {
+          if (error instanceof SafeError && error.code === 'INTERNAL_ERROR') throw error;
+          throw new SafeError('INVALID_CREDENTIALS', `Credential storage is corrupt or incompatible, so the plugin cannot safely interpret its connection and cleanup records. ${storageRecovery}`); }
         finally { await file.close(); }
-      },
-      save: async value => {
+      }),
+      save: value => storageIO('persist the private connection and cleanup record', async () => {
         assertLock();
         if (!value) { await unlink(this.path).catch(error => { if (error.code !== 'ENOENT') throw error; }); return; }
         this.secrets.add(value.accessToken, value.refreshToken);
@@ -111,7 +123,7 @@ export class CredentialStore {
         finally { await unlink(temp).catch(() => {}); }
         const dir = await open(this.directory, constants.O_RDONLY);
         try { await dir.sync(); } finally { await dir.close(); }
-      },
+      }),
     };
     try { return await fn(transaction); } finally { await release().catch(() => {}); }
   }

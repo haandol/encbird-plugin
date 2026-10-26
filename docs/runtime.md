@@ -52,6 +52,8 @@ These are per-profile client guardrails, not service-wide quotas. Separate profi
 
 ## Account connections and local storage
 
+[auth.ts](../plugins/encbird/src/auth.ts) coordinates process-local sign-in tasks and cancellation. [connection.ts](../plugins/encbird/src/connection.ts) owns connection, refresh and cleanup transitions inside one credential-store transaction. Backend revocation is confirmed before provider revocation; failures preserve the records needed for cleanup.
+
 `encbird_connect` starts browser sign-in and returns `authentication_pending`. Call it again after the learner finishes signing in to confirm `connected`. The plugin uses OAuth, a standard for obtaining access through user authorization, and does not accept tokens directly from the agent. It verifies the configured discovery endpoints before sign-in, uses PKCE S256 to bind the login code to the initiating process, and verifies the returned ID token. Learning requests carry the access token for the MCP resource and the required learning scopes; web login tokens are not interchangeable with this grant.
 
 `encbird_disconnect` blocks local learning access before performing cleanup. Retry if cleanup is incomplete, and report completion only after `disconnected`. When reauthentication is required, have the learner sign in to the same account in the browser. Cancelled sign-in or sign-in to a different account does not complete recovery. Agents must not read credential files or delete pending records.

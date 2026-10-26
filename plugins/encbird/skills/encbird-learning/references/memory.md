@@ -1,11 +1,15 @@
-# Consented learning memory
+# Consented learning candidates
 
-Read this reference before saving, correcting, or deleting learning memories.
+Read this reference before submitting profile, activity, or learning observations for EncBird to evaluate. The plugin has no direct memory access: do not request memory content, search, record IDs, versions, corrections, deletions, exports, or `factRefs`.
 
-Before collecting host/session context, establish the learner's permission for that source and persistence scope. Reuse permission already given for this scope; do not collect unrelated conversations, private files, contacts, secrets, or identifiers. Retain only useful learning excerpts. The runtime rejects detectable private identifiers and credentials before HTTP; do not disguise rejected content to bypass that boundary.
+## Source and permission
 
-Memory writes use `operationKey`, `sourceHost`, `sourceSessionId`, and `messages` with actual IDs, roles (`user`, `assistant`, `generated`), minimal content, and actual RFC3339 `observedAt` timestamps. Never invent source identity or observation times. Assistant/generated text is context, never learner evidence.
+Establish the learner's permission for the source and persistence scope before collecting host/session context. Reuse permission already given for this scope. Do not collect unrelated conversations, private files, contacts, secrets, or identifiers. Send only useful learning excerpts; never disguise rejected private content to bypass input validation.
 
-Each proposed fact contains `category` (`profile`, `interest`, `work`, `learning`), a stable semantic `key`, `kind`, `content`, optional `occurredOn`, and `evidence` pairs of `messageId` and exact `quote`. Quotes must occur in the cited user message. Non-learning kinds are `state`, `event`, `plan`, or `habit`. Learning kinds are `weakness` or `strength`; these require at least four real learner messages and two independent supporting learner messages. Do not derive a stable weakness from a model-generated answer or a single attempt. A future occurrence is a plan. If evidence is insufficient, leave the fact unsaved.
+## Submission and status
 
-A memory result returns `operationId`, operation `status`, and per-fact `{factId, category, version, status}`. It does not return private assertion text. Keep the accepted identity/version for corrections, deletions, and recommendation `factRefs`. Correct with `target`, new `fact`, and new actual source messages. Delete with `operationKey` and the exact `target`; do not send a transcript for deletion. Preserve operation keys/payloads on retries, and report conflicts or invalidation rather than claiming every fact was stored.
+Use `encbird_submit_memory_candidates` with the original stable `operationKey`, actual `sourceHost` and `sourceSessionId`, and 1–20 candidates. Each candidate has a stable `id`, `kind` (`profile`, `activity`, or `learning`), `content`, and actual RFC3339 `observedAt`. Optional `evidenceIds` must reference actual user messages included in optional `messages`; never invent evidence, source identities, or timestamps. Candidate summaries and assistant/generated text are not user utterances.
+
+EncBird evaluates candidates internally before deciding whether to update learning memory; submission does not directly change memory or the basic profile. Strengths and weaknesses require at least four actual user utterances and two independent supporting user evidence items. Insufficient evidence can result in no new facts.
+
+Submission returns only `{candidateId,status}`. Use that returned ID with `encbird_get_memory_candidate_status` when a status check is needed; do not poll in a loop. Status is `pending`, `processing`, `completed`, `cancelled`, or `failed`. `pending` confirms receipt, and even `completed` does not confirm memory was added. Do not claim a stored fact or infer its contents. Preserve the complete original payload and key for an explicit retry after following the error's recovery instructions; never automatically replay a write.

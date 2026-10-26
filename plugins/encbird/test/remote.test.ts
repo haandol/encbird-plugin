@@ -174,3 +174,40 @@ test('remote overload retains Retry-After when its response body stalls', async 
     { code: 'SERVICE_UNAVAILABLE', retryAfterSeconds: 45 });
   assert.equal(f.requests.filter(r => r.body.method === 'tools/call').length, 1);
 });
+
+
+for (const encoding of ['structured', 'text', 'rpc-data']) {
+  test(`native MCP ${encoding} keeps actionable credit rejection and never replays registration`, async t => {
+    const m = await mock(); t.after(() => m.close()); await m.login();
+    const tools = new LearningTools();
+    const envelope = { error: { code: 'NOT_ENOUGH_CREDIT', message: `private diagnostic ${m.issued.join(' ')}` } };
+    if (encoding === 'rpc-data') m.rpc.error = { code: -32000, message: 'unsafe', data: envelope };
+    else m.rpc.result = { isError: true, ...(encoding === 'structured' ? { structuredContent: envelope } : {}),
+      content: [{ type: 'text', text: JSON.stringify(envelope) }] };
+    const input = { phrase: 'look up', idempotencyKey: 'original-key', approval: { method: 'credits', creditAmount: 1 } };
+    await assert.rejects(tools.call(m.auth, 'encbird_add_expression', input), error => {
+      assert.ok(error instanceof SafeError); assert.equal(error.code, 'NOT_ENOUGH_CREDIT');
+      assert.match(error.message, /Insufficient credits.*top up credits.*original operation key/);
+      assert.doesNotMatch(error.message, /private diagnostic|unsafe/); return true;
+    });
+    assert.deepEqual(m.rpcCalls().map(r => (r.body as any).params.arguments), [input]);
+    assert.equal(m.counts.refresh, 0);
+  });
+}
+
+
+test('native HTTP authentication wins over malformed bodies and protocol headers without a write replay', async t => {
+  const f = await serverFixture(); t.after(() => f.close());
+  for (const body of ['unsafe', 'x'.repeat(1_048_577), '{"error":{"code":"NOT_ENOUGH_CREDIT"}}']) {
+    f.options.call = (_request, response) => { response.writeHead(401, { 'mcp-session-id': 'unexpected' }); response.end(body); };
+    const before = f.requests.length;
+    await assert.rejects(callRemoteTool(f.base, async () => 'private-token', 'encbird_add_expression', { phrase: 'hello', idempotencyKey: 'same' }), { code: 'AUTH_REQUIRED' });
+    assert.equal(f.requests.slice(before).filter(r => r.body.method === 'tools/call').length, 1);
+  }
+});
+
+test('native HTTP errors retain the existing fallback code when no domain code is supplied', async t => {
+  const f = await serverFixture(); t.after(() => f.close());
+  f.options.call = (_request, response) => { response.writeHead(400).end('private diagnostic'); };
+  await assert.rejects(callRemoteTool(f.base, async () => 'private-token', 'encbird_get_context', {}), { code: 'MCP_HTTP_ERROR' });
+});

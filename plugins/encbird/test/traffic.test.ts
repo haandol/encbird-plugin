@@ -81,11 +81,10 @@ test('overload preserves public error codes while withholding diagnostic text', 
   m.flags.apiStatus = 503;
   m.flags.apiBody = { error: { code: 'LEARNING_UNAVAILABLE', message: 'private diagnostic' } };
   await assert.rejects(m.auth.request('GET', '/context'), error => {
-    assert.deepEqual(safeError(error).error, {
-      code: 'LEARNING_UNAVAILABLE',
-      message: 'The service requested a pause. Wait before retrying; keep the same input and operation key for writes.',
-      retryAfterSeconds: 30,
-    }); return true;
+    const result = safeError(error).error;
+    assert.equal(result.code, 'LEARNING_UNAVAILABLE'); assert.equal(result.retryAfterSeconds, 30);
+    assert.match(result.message, /service recovery.*original payload/);
+    assert.doesNotMatch(result.message, /private diagnostic/); return true;
   });
 });
 

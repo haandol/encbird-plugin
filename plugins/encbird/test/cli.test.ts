@@ -21,7 +21,7 @@ function run(args: string[], input: unknown, m: Awaited<ReturnType<typeof mock>>
 test('script discovery and invalid plans make no server requests', async t => {
   const m = await mock(); t.after(() => m.close());
   const list = await run(['list'], undefined, m);
-  assert.equal(list.code, 0); assert.equal(list.output.data.tools.length, 17);
+  assert.equal(list.code, 0); assert.equal(list.output.data.tools.length, 14);
   const description = await run(['describe', 'encbird_search_expressions'], undefined, m);
   assert.equal(description.output.data.inputSchema.type, 'object');
   for (const plan of [
@@ -67,4 +67,41 @@ test('script stops a read plan on overload and a new process respects its cooldo
   assert.equal(retry.code, 1); assert.equal(retry.output.error.code, 'REQUEST_THROTTLED');
   assert.equal(m.requests.length, before + 3);
   assert.equal(m.rpcCalls().length, 1);
+});
+
+
+test('script preserves candidate-only permissions and rejects private material output', async t => {
+  const m = await mock(); t.after(() => m.close()); await m.login();
+  const before = m.requests.length;
+  for (const name of ['encbird_get_memory', 'encbird_search_memory', 'encbird_save_memory', 'encbird_correct_memory',
+    'encbird_delete_memory', 'encbird_export_memory', 'encbird_save_suggested_expressions', 'encbird_save_freechat_scenarios']) {
+    const result = await run(['call', name], {}, m);
+    assert.equal(result.code, 1); assert.equal(result.output.error.code, 'TOOL_UNAVAILABLE');
+  }
+  const invalid = await run(['call', 'encbird_submit_memory_candidates'], {
+    ...samples.encbird_submit_memory_candidates.input, factRefs: [],
+  }, m);
+  assert.equal(invalid.output.error.code, 'INVALID_ARGUMENTS'); assert.equal(m.requests.length, before);
+  const submitted = await run(['call', 'encbird_submit_memory_candidates'], samples.encbird_submit_memory_candidates.input, m);
+  assert.deepEqual(submitted.output, samples.encbird_submit_memory_candidates.output);
+  assert.deepEqual((m.rpcCalls().at(-1)!.body as any).params.arguments, samples.encbird_submit_memory_candidates.input);
+  m.flags.apiBody = { data: { ...samples.encbird_get_context.output.data, factRefs: [{ factId: 'private-fact' }] } };
+  const profile = await run(['call', 'encbird_get_context'], {}, m);
+  assert.equal(profile.output.error.code, 'INVALID_RESPONSE'); assert.ok(!JSON.stringify(profile).includes('private-fact'));
+});
+
+test('script reports insufficient credits and retains cooldown without recharging or changing the key', async t => {
+  const m = await mock(); t.after(() => m.close()); await m.login();
+  const input = { phrase: 'look up', idempotencyKey: 'original-registration', approval: { method: 'credits', creditAmount: 1 } };
+  m.flags.apiStatus = 503; m.flags.apiRetryAfter = '60';
+  m.flags.apiBody = { error: { code: 'NOT_ENOUGH_CREDIT', message: `private diagnostic ${m.issued.join(' ')}` } };
+  const result = await run(['call', 'encbird_add_expression'], input, m);
+  assert.equal(result.code, 1); assert.equal(result.output.error.code, 'NOT_ENOUGH_CREDIT');
+  assert.match(result.output.error.message, /Insufficient credits.*top up credits.*original operation key/);
+  assert.equal(result.output.error.retryAfterSeconds, 60);
+  const blocked = await run(['call', 'encbird_add_expression'], input, m);
+  assert.equal(blocked.output.error.code, 'REQUEST_THROTTLED');
+  assert.deepEqual(m.rpcCalls().map(r => (r.body as any).params.arguments), [input]);
+  assert.equal(m.counts.refresh, 0);
+  for (const token of m.issued) assert.ok(!JSON.stringify([result, blocked]).includes(token));
 });

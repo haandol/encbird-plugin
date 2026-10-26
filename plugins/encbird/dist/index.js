@@ -15039,13 +15039,13 @@ var recordProcessor = (schema, ctx, _json, params) => {
         ...params,
         path: [...params.path, "propertyNames"]
       });
-      let pending2 = pendingRecords.get(ctx);
-      if (!pending2) {
-        pending2 = [];
-        pendingRecords.set(ctx, pending2);
+      let pending = pendingRecords.get(ctx);
+      if (!pending) {
+        pending = [];
+        pendingRecords.set(ctx, pending);
         ctx.deferred.push(() => rewriteKeyNames(ctx));
       }
-      pending2.push(schema);
+      pending.push(schema);
     }
     json.additionalProperties = processSchema(def.valueType, ctx, {
       ...params,
@@ -18838,8 +18838,8 @@ var Protocol = class {
    */
   async _clearTaskQueue(taskId, sessionId) {
     if (this._taskMessageQueue) {
-      const messages = await this._taskMessageQueue.dequeueAll(taskId, sessionId);
-      for (const message2 of messages) {
+      const messages2 = await this._taskMessageQueue.dequeueAll(taskId, sessionId);
+      for (const message2 of messages2) {
         if (message2.type === "request" && isJSONRPCRequest(message2.message)) {
           const requestId = message2.message.id;
           const resolver = this._requestResolvers.get(requestId);
@@ -19664,13 +19664,16 @@ var SafeError = class extends Error {
   code;
   retryAfterSeconds;
 };
+var uncertainOutcome = "A write may already have taken effect; do not claim it was unsaved or replay it automatically. Check existing results with read tools or in EncBird first. An explicit retry must keep the complete original payload, approval, funding method, and operation key; if these are unavailable, ask an operator to reconcile the outcome.";
+var authCleanup = "Run encbird_disconnect to finish any retained cleanup. If it reports reauthenticationRequired, use encbird_connect for same-account browser recovery. Retry sign-in only after cleanup succeeds and the learner still wants to connect; if cleanup cannot proceed, ask an operator to recover it without deleting credential or lock files.";
+var storageRecovery = "Ask the local operator to restore safe access while preserving credential and lock files, which may retain pending revocation. Do not copy tokens, change the credential scope to bypass cleanup, or keep retrying before repair.";
 function safeError(error2) {
   if (error2 instanceof SafeError) return { error: {
     code: error2.code,
     message: error2.message,
     ...error2.retryAfterSeconds === void 0 ? {} : { retryAfterSeconds: error2.retryAfterSeconds }
   } };
-  return { error: { code: "INTERNAL_ERROR", message: "EncBird could not complete the operation. Retry or reconnect." } };
+  return { error: { code: "INTERNAL_ERROR", message: `The plugin could not complete the operation for an unclassified reason. Ask the local operator to inspect the plugin before retrying. ${uncertainOutcome} Preserve credential and lock files; use encbird_disconnect for pending cleanup when storage is usable.` } };
 }
 var Secrets = class {
   values = /* @__PURE__ */ new Set();
@@ -19746,7 +19749,7 @@ function serviceUrl(value) {
     throw new SafeError("INVALID_CONFIG", "Service URLs must be unambiguous HTTP or HTTPS URLs without credentials, queries, or fragments.");
   }
 }
-async function requestJson(url2, init = {}, timeoutMs = 15e3) {
+async function requestJson(url2, init = {}, timeoutMs = 15e3, errorBodyOptional = false) {
   let response;
   try {
     response = await fetch(url2, { ...init, redirect: "error", signal: AbortSignal.timeout(timeoutMs) });
@@ -19756,6 +19759,11 @@ async function requestJson(url2, init = {}, timeoutMs = 15e3) {
       body,
       ...pause ? { retryAfterSeconds: retryAfterSeconds(response.headers.get("retry-after")) } : {}
     });
+    if (errorBodyOptional && response.status === 401) {
+      await response.body?.cancel().catch(() => {
+      });
+      return result(null);
+    }
     const reader = response.body?.getReader();
     const chunks = [];
     let size = 0;
@@ -19766,8 +19774,8 @@ async function requestJson(url2, init = {}, timeoutMs = 15e3) {
         size += value.length;
         if (size > 1048576) {
           await reader.cancel();
-          if (pause) return result({});
-          throw new SafeError("INVALID_RESPONSE", "EncBird returned an oversized response.");
+          if (pause || errorBodyOptional && !response.ok) return result({});
+          throw new SafeError("INVALID_RESPONSE", `The service response exceeded the size limit. Ask the operator to repair the response before retrying. ${uncertainOutcome}`);
         }
         chunks.push(value);
       }
@@ -19777,19 +19785,19 @@ async function requestJson(url2, init = {}, timeoutMs = 15e3) {
     try {
       return result(JSON.parse(raw));
     } catch {
-      if (pause) return result({});
-      throw new SafeError("INVALID_RESPONSE", "The service returned an invalid JSON response.");
+      if (pause || errorBodyOptional && !response.ok) return result({});
+      throw new SafeError("INVALID_RESPONSE", `The service returned invalid JSON. Ask the operator to restore a valid response before retrying. ${uncertainOutcome}`);
     }
   } catch (error2) {
     if (response?.status === 429 || response?.status === 503) {
       return { status: response.status, body: {}, retryAfterSeconds: retryAfterSeconds(response.headers.get("retry-after")) };
     }
     if (error2 instanceof SafeError) throw error2;
-    throw new SafeError("NETWORK_ERROR", "The service could not be reached securely. No fallback was attempted.");
+    throw new SafeError("NETWORK_ERROR", `The service request could not be completed securely; delivery or response receipt is uncertain. Check connectivity and ask the operator if it persists. Retry only after access is restored; no fallback was attempted. ${uncertainOutcome}`);
   }
 }
 function object3(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new SafeError("INVALID_RESPONSE", "The service response has an invalid shape.");
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new SafeError("INVALID_RESPONSE", `The service returned an unexpected response shape. Ask the operator to check plugin/service compatibility before retrying. ${uncertainOutcome}`);
   return value;
 }
 
@@ -19806,7 +19814,7 @@ function resolveBase(value = process.env.ENCBIRD_API_BASE_URL) {
     if (url2.protocol !== "http:" || !isLoopback(url2) || url2.username || url2.password || url2.search || url2.hash) throw new Error();
     return url2.href.replace(/\/$/, "");
   } catch {
-    throw new SafeError("INVALID_CONFIG", "ENCBIRD_API_BASE_URL must be an explicit loopback HTTP URL.");
+    throw new SafeError("INVALID_CONFIG", "ENCBIRD_API_BASE_URL is invalid. Ask the local operator to unset it for production or configure an explicit loopback HTTP URL without credentials, query, or fragment for local development. Retry only after correcting the configuration.");
   }
 }
 function validateBase(base) {
@@ -19816,11 +19824,11 @@ function validateOAuth(input, base) {
   base = validateBase(base);
   const data = object3(input);
   for (const key of ["issuer", "clientId", "authorizationEndpoint", "tokenEndpoint", "revocationEndpoint", "resource"]) {
-    if (typeof data[key] !== "string" || !data[key] || /\s/.test(data[key])) throw new SafeError("INVALID_CONFIG", "OAuth bootstrap configuration is invalid.");
+    if (typeof data[key] !== "string" || !data[key] || /\s/.test(data[key])) throw new SafeError("INVALID_CONFIG", "Sign-in configuration is missing or has invalid required fields. Ask the EncBird operator to repair the configuration, then retry encbird_connect; do not supply tokens or substitute endpoints.");
   }
   const allowedScopes = /* @__PURE__ */ new Set(["openid", `${data.resource}/learning.read`, `${data.resource}/learning.write`]);
   if (data.redirectUri !== REDIRECT_URI || !Array.isArray(data.scopes) || !data.scopes.includes("openid") || !data.scopes.includes(`${data.resource}/learning.read`) || new Set(data.scopes).size !== data.scopes.length || !data.scopes.every((scope) => typeof scope === "string" && allowedScopes.has(scope))) {
-    throw new SafeError("INVALID_CONFIG", "OAuth requires openid, resource/learning.read, optional resource/learning.write, and the exact registered loopback redirect.");
+    throw new SafeError("INVALID_CONFIG", "Sign-in requires openid, resource/learning.read, optional resource/learning.write, and the exact registered loopback redirect. Ask the EncBird operator to repair configuration before retrying encbird_connect; do not bypass scope or callback checks.");
   }
   const local = base !== DEFAULT_BASE;
   try {
@@ -19833,17 +19841,72 @@ function validateOAuth(input, base) {
     const authOrigin = new URL(data.authorizationEndpoint).origin;
     if ([data.tokenEndpoint, data.revocationEndpoint].some((url2) => new URL(url2).origin !== authOrigin)) throw new Error();
   } catch {
-    throw new SafeError("INVALID_CONFIG", "OAuth URL trust validation failed.");
+    throw new SafeError("INVALID_CONFIG", "Sign-in endpoints failed trust validation. Stop sign-in and ask the EncBird operator to repair the configuration before retrying encbird_connect; do not bypass validation or substitute endpoints.");
   }
   return data;
 }
 async function bootstrap(base) {
   base = validateBase(base);
   const { status, body } = await requestJson(`${base}/config`);
-  if (status !== 200) throw new SafeError("CONFIG_UNAVAILABLE", "EncBird sign-in configuration is unavailable.");
+  if (status !== 200) throw new SafeError("CONFIG_UNAVAILABLE", "EncBird sign-in configuration could not be loaded. Retry encbird_connect after service access is restored; ask the EncBird operator if it persists. Do not substitute endpoints or credentials.");
   const data = object3(body);
-  if (data.apiVersion !== "1") throw new SafeError("API_VERSION_UNSUPPORTED", "This plugin requires EncBird API version 1.");
+  if (data.apiVersion !== "1") throw new SafeError("API_VERSION_UNSUPPORTED", "This plugin requires EncBird API version 1, but the service did not advertise it. Ask the operator to install a compatible plugin and service before retrying encbird_connect.");
   return validateOAuth(data.oauth, base);
+}
+
+// src/api-errors.ts
+var permission = "This connection does not have permission for the operation. Ask the EncBird operator to confirm that access is allowed and configured. If a new grant is needed, run encbird_disconnect to finish cleanup, then encbird_connect with the same account and requested consent. Retry only after permission is available; do not bypass authorization.";
+var concurrent = "Learning state changed during the request. Wait for the competing operation to finish, then explicitly retry only the complete original payload and operation key, including any approval. Do not change identifiers or funding to escape the conflict; ask the EncBird operator if it persists.";
+var messages = {
+  NOT_ENOUGH_CREDIT: "Insufficient credits. Ask the learner to top up credits in EncBird before retrying. Do not keep retrying an unchanged balance or switch funding automatically. A legitimate retry must keep the original operation key, payload, and approved payment method and amount; do not infer the balance or amount needed.",
+  FREE_TRIAL_UNAVAILABLE: "The approved free trial is unavailable. Stop retries with that approval. If the learner wants to continue, request a fresh encbird_add_expression preview for the same phrase and operation key without approval, then ask for explicit approval of the returned funding method and amount. Do not switch to credits automatically.",
+  CREDIT_PRICE_CHANGED: "The approved credit price is no longer current. Request a fresh encbird_add_expression preview for the same phrase and operation key without approval. Ask the learner to approve the returned method and amount before continuing; do not infer a price or change funding automatically.",
+  MCP_APPROVAL_INVALID: "The registration approval is invalid. Retrieve an encbird_add_expression preview for the same phrase and operation key without approval, and use only its returned approval after the learner explicitly agrees. Do not manufacture approval or switch funding automatically.",
+  INVALID_CREDIT: "The credit request was rejected as invalid; this does not establish a credit shortage. Ask the EncBird operator to check the registration approval and credit handling before retrying. Preserve the original key and approved funding; do not guess an amount.",
+  INVALID_IDEMPOTENCY_KEY: "The operation key was rejected as invalid. For a first attempt with confirmed input rejection, correct the key to the tool schema format once, then keep that key for the operation. If an earlier write may have been accepted, recover its exact original valid key or ask the EncBird operator to reconcile it; do not invent a replacement key to repeat that write or evade a conflict. Never replay a write automatically.",
+  IDEMPOTENCY_KEY_CONFLICT: "This operation key was already used with different request data. Recover and compare the complete original payload, including approval, before an explicit retry with that same key. Do not change keys to bypass the conflict; if the original request cannot be recovered, ask the EncBird operator to reconcile it.",
+  IDEMPOTENCY_RESULT_UNAVAILABLE: "The original operation has no reusable result. Check existing expressions with encbird_search_expressions or encbird_get_expression, then ask the EncBird operator to reconcile the original operation before another write. Do not use a new key to register or charge again.",
+  LEARNING_CONFLICT: "The request conflicts with learning or source state; the code does not distinguish changed evidence from a retry conflict. Check encbird_get_memory_candidate_status if a batch ID is available, or encbird_list_suggested_expressions for a suggestion. Compare the original payload, source, IDs, and key before retrying it unchanged. Never change IDs or keys to bypass the conflict; ask the EncBird operator if it persists.",
+  MCP_QUIZ_REVISION_CONFLICT: "The quiz question changed. Use encbird_list_review_quizzes to retrieve the current question and let the learner make a new attempt and choose a rating. Do not submit the old answer under a new revision or key to bypass the conflict.",
+  MCP_QUIZ_CONCURRENT_CHANGE: concurrent,
+  REVIEW_CONCURRENT_CHANGE: concurrent,
+  CREDIT_CONCURRENT_CHANGE: "Credit state changed during the operation; this does not establish a shortage or a new balance. Wait for the competing operation to finish, then explicitly retry the complete original payload, key, and approval. Do not switch funding; ask the EncBird operator if contention persists.",
+  LEARNING_SOURCE_UNAVAILABLE: "The learning source or account is unavailable. Stop submitting or polling that source. Have the learner check its availability in EncBird and ask the EncBird operator if access should exist; retry only after availability is confirmed. Do not recreate deleted sources or invent replacement IDs.",
+  MEMORY_CANDIDATE_NOT_FOUND: "The candidate batch was not found for this account. Verify candidateId against the original encbird_submit_memory_candidates result. Stop polling if it is missing; ask the EncBird operator to investigate before resubmitting. Do not infer that no candidates were processed or create new IDs to repeat the batch.",
+  RESOURCE_NOT_FOUND: "The requested content was not found. Refresh the matching EncBird list or search tool and use a returned identifier. If it remains absent, ask the learner to choose available content; do not recreate it or repeat registration or charges to recover it.",
+  PROFILE_NOT_FOUND: "The EncBird learning profile was not found. Have the learner check their account setup in EncBird and contact the EncBird operator if needed. Resume only after the profile is available; do not create a replacement identity.",
+  PROFILE_DELETED_QUIT: "The EncBird profile has been deleted. Stop learning calls and run encbird_disconnect for connection cleanup. Have the learner contact EncBird support about their account; do not recreate the profile or retry writes.",
+  MCP_GENERATION_DISABLED: "This expression has no cached meaning and generation is disabled. Ask the EncBird operator whether generation can be enabled for this environment. Retry only after it is enabled and the learner still approves the original operation, using the same payload, key, and funding; do not generate or save a substitute through another tool.",
+  INVALID_REQUEST: "EncBird rejected the request inputs. Check the discovered tool schema and actual source data, then correct the inputs before submitting. Never invent source IDs, evidence, consent, or approval; do not alter an earlier uncertain write under its key.",
+  INVALID_MCP_QUIZ_RESULT: "The quiz result is missing or has invalid attempt data. Use the listed quiz and revision, the actual learner answer, completion and assistance, actual source identifiers, and an explicit learner rating from 1 to 4. Submit only once those inputs are available; never infer a rating or relabel an earlier attempt.",
+  INVALID_MCP_REVIEW: "The review result is invalid. Check the discovered tool schema and collect the actual completed attempt and explicit learner rating before submitting. Do not infer completion or change an earlier operation to bypass validation.",
+  VOCAB_INVALID_PHRASE: "EncBird could not accept this phrase as a meaningful expression. Ask the learner to clarify the intended expression before a new registration preview and any required approval. Do not silently replace the phrase in an earlier uncertain write.",
+  EMPTY_PHRASE: "No expression was provided. Ask the learner for the intended phrase, then request an encbird_add_expression preview before any required approval; do not invent a phrase.",
+  VOCAB_ALREADY_EXISTS: "The expression already exists. Use encbird_search_expressions and encbird_get_expression to retrieve it instead of registering or charging again.",
+  PERMISSION_REQUIRED: permission,
+  CONNECTION_FORBIDDEN: permission,
+  NOT_ALLOWED_RESOURCE: "This account is not allowed to access the requested content. Use content returned by its own EncBird list tools or ask the EncBird operator to check access. Retry only after legitimate access is confirmed; do not substitute another account or bypass authorization.",
+  AUTHENTICATION_REQUIRED: "EncBird requires authentication. Run encbird_connect and follow its browser or cleanup instructions before resuming; use the same account for recovery. Do not automatically repeat a learning write.",
+  UNAUTHORIZED: "EncBird rejected authorization for this operation. Check connection progress with encbird_connect; if already connected, ask the EncBird operator to check access before retrying. Do not bypass authorization or automatically repeat a write.",
+  CONNECTION_INACTIVE: "This connection is inactive. Run encbird_disconnect to finish any retained cleanup, then encbird_connect for browser sign-in. If cleanup requires reauthentication, recover with the same account. Resume learning only after connected; do not automatically replay the failed write.",
+  RATE_LIMITED: `EncBird is limiting requests. Stop repeated calls and wait before an explicit retry; ask the EncBird operator if the limit persists. ${uncertainOutcome}`,
+  SERVICE_UNAVAILABLE: `EncBird is temporarily unavailable. Wait for service recovery before an explicit retry; ask the EncBird operator if it persists. ${uncertainOutcome}`,
+  LEARNING_UNAVAILABLE: `The learning service could not complete the operation. Wait for service recovery before an explicit retry; ask the EncBird operator if it persists. ${uncertainOutcome}`
+};
+function classifiedError(status, code) {
+  if (status === 401) return new SafeError("AUTH_REQUIRED", "EncBird rejected authorization for this request. Ask the EncBird operator to repair configuration or authorization before retrying; repeating connection setup or cleanup does not force a rejected unexpired token to refresh. After repair, use encbird_connect to resume retained setup or recovery, or encbird_disconnect to finish cleanup. Follow same-account reauthentication if requested. Preserve credential records and do not repeatedly retry, bypass sign-in, or claim cleanup is complete.");
+  if (Object.hasOwn(messages, code)) return new SafeError(code, messages[code]);
+  if (code !== "API_ERROR") return new SafeError(code, `EncBird returned an error code this plugin does not recognize. Ask the EncBird operator to check this code and plugin/service compatibility before retrying; do not infer its cause from the code or change funding, identity, or operation keys. ${uncertainOutcome}`);
+  if (status === 403) return new SafeError("CONNECTION_FORBIDDEN", permission);
+  if (status === 429) return new SafeError(code, `EncBird is limiting requests. Stop repeated calls and wait before an explicit retry; ask the EncBird operator if it persists. ${uncertainOutcome}`);
+  if (status >= 500) return new SafeError(code, `EncBird could not complete the request because of a service error. Wait for service recovery; ask the EncBird operator if it persists. ${uncertainOutcome}`);
+  return new SafeError(code, `EncBird rejected the request without a recognized error code. Check the discovered tool schema and ask the EncBird operator to investigate before retrying. ${uncertainOutcome}`);
+}
+function apiError(status, code, retryAfterSeconds2) {
+  if (code === "API_ERROR" && (status === 429 || status === 503)) code = status === 429 ? "RATE_LIMITED" : "SERVICE_UNAVAILABLE";
+  const error2 = classifiedError(status, code);
+  if ((status === 429 || status === 503) && retryAfterSeconds2 !== void 0) error2.retryAfterSeconds = retryAfterSeconds2;
+  return error2;
 }
 
 // src/api.ts
@@ -19857,13 +19920,13 @@ async function apiRequest(base, token, method, path, body) {
     const prefix = api.pathname.replace(/\/$/, "");
     if (url2.origin !== api.origin || url2.pathname !== `${prefix}${path.split("?")[0]}` || !url2.pathname.startsWith(`${prefix}/`)) throw new Error();
   } catch {
-    throw new SafeError("INVALID_ROUTE", "The requested API route is not allowed.");
+    throw new SafeError("INVALID_ROUTE", "The requested API route is not allowed. Discover and use the supported EncBird tools; ask the plugin operator to repair routing before retrying. Do not substitute a direct route. This call sent no request.");
   }
   const { status, body: response, retryAfterSeconds: retryAfterSeconds2 } = await requestJson(url2.href, {
     method,
     headers: { authorization: `Bearer ${token}`, ...body === void 0 ? {} : { "content-type": "application/json" } },
     ...body === void 0 ? {} : { body: JSON.stringify(body) }
-  });
+  }, 15e3, true);
   if (status < 200 || status >= 300) {
     let code = "API_ERROR";
     try {
@@ -19871,19 +19934,11 @@ async function apiRequest(base, token, method, path, body) {
       if (typeof candidate === "string" && /^[A-Z][A-Z0-9_]{1,63}$/.test(candidate)) code = candidate;
     } catch {
     }
-    if (status === 429 || status === 503) throw new SafeError(
-      code === "API_ERROR" ? status === 429 ? "RATE_LIMITED" : "SERVICE_UNAVAILABLE" : code,
-      "The service requested a pause. Wait before retrying; keep the same input and operation key for writes.",
-      retryAfterSeconds2
-    );
-    if (status === 401) throw new SafeError("AUTH_REQUIRED", "EncBird rejected this connection. Retry with the same operation key or reconnect.");
-    if (status === 403 && code === "CONNECTION_INACTIVE") throw new SafeError("CONNECTION_INACTIVE", "This connection is inactive. Run connect for a new browser sign-in; finish any pending disconnect cleanup first.");
-    if (status === 403) throw new SafeError(code === "API_ERROR" ? "CONNECTION_FORBIDDEN" : code, "EncBird denied this operation for the current connection.");
-    throw new SafeError(code, "EncBird could not complete the request. If retrying a write, keep the same operation key.");
+    throw apiError(status, code, retryAfterSeconds2);
   }
   if (status === 204) return null;
   const envelope = object3(response);
-  if (!Object.hasOwn(envelope, "data") || Object.hasOwn(envelope, "error")) throw new SafeError("INVALID_RESPONSE", "EncBird returned an invalid data envelope.");
+  if (!Object.hasOwn(envelope, "data") || Object.hasOwn(envelope, "error")) throw new SafeError("INVALID_RESPONSE", `EncBird returned an invalid data envelope. Ask the operator to align the plugin and service response before retrying. ${uncertainOutcome}`);
   return envelope.data;
 }
 
@@ -20461,14 +20516,14 @@ function isUsableJWK(jwk, entry, alg, kid) {
 async function importWithAlgCache(cache2, jwk, entry) {
   const cached2 = cache2.get(jwk) || cache2.set(jwk, {}).get(jwk), { alg } = entry;
   if (cached2[alg] === void 0) {
-    const pending2 = jwkToKey(entry, jwk, true).then((key) => {
+    const pending = jwkToKey(entry, jwk, true).then((key) => {
       if (key.type !== "public")
         throw new JWKSInvalid("JSON Web Key Set members must be public keys");
       return cached2[alg] = key, key;
     }).catch((error2) => {
-      throw cached2[alg] === pending2 && delete cached2[alg], error2;
+      throw cached2[alg] === pending && delete cached2[alg], error2;
     });
-    cached2[alg] = pending2;
+    cached2[alg] = pending;
   }
   return cached2[alg];
 }
@@ -20558,11 +20613,11 @@ function authorizationUrl(config2, values, forceLogin = false) {
 }
 async function openBrowser(url2) {
   const command = process.platform === "darwin" ? "open" : process.platform === "linux" ? "xdg-open" : void 0;
-  if (!command) throw new SafeError("BROWSER_UNAVAILABLE", "Automatic browser sign-in requires macOS or Linux.");
+  if (!command) throw new SafeError("BROWSER_UNAVAILABLE", "Automatic browser sign-in requires macOS or Linux. Use a supported local desktop and encbird_connect when the learner wants to sign in; never copy tokens or callback URLs into the assistant.");
   try {
     await promisify(execFile)(command, [url2], { timeout: 5e3, maxBuffer: 4096 });
   } catch {
-    throw new SafeError("BROWSER_UNAVAILABLE", "The sign-in browser could not be opened. Retry from a desktop session.");
+    throw new SafeError("BROWSER_UNAVAILABLE", "The sign-in browser could not be opened. Ask the local operator to restore the default browser launcher in this desktop session, then use encbird_connect if the learner still wants to sign in. Never copy tokens or callback URLs.");
   }
 }
 async function callback(state, signal, timeoutMs = 18e4) {
@@ -20582,8 +20637,8 @@ async function callback(state, signal, timeoutMs = 18e4) {
       server2.closeAllConnections();
     }
   };
-  const abort = () => fail(new SafeError("AUTH_CANCELLED", "Sign-in was cancelled."));
-  const timer = setTimeout(() => fail(new SafeError("AUTH_TIMEOUT", "Sign-in timed out. Run connect again.")), timeoutMs);
+  const abort = () => fail(new SafeError("AUTH_CANCELLED", "Sign-in was cancelled. Do not restart without learner intent. Run encbird_disconnect if cleanup is still pending; preserve credential records until cleanup completes."));
+  const timer = setTimeout(() => fail(new SafeError("AUTH_TIMEOUT", "Browser sign-in timed out. If the learner still wants to connect, run encbird_connect for a fresh browser flow and complete it before the timeout; do not reuse the old callback.")), timeoutMs);
   signal.addEventListener("abort", abort, { once: true });
   try {
     for (const host of ["127.0.0.1", "::1"]) {
@@ -20613,13 +20668,13 @@ async function callback(state, signal, timeoutMs = 18e4) {
         const received = url2.searchParams.get("state") ?? "";
         if (url2.searchParams.getAll("state").length !== 1 || Buffer.byteLength(received) !== Buffer.byteLength(state) || !timingSafeEqual(Buffer.from(received), Buffer.from(state))) {
           res.writeHead(400).end("Invalid sign-in state.");
-          fail(new SafeError("OAUTH_STATE_MISMATCH", "Sign-in state did not match. Retry sign-in."));
+          fail(new SafeError("OAUTH_STATE_MISMATCH", "The browser callback did not match this sign-in attempt. If the learner still wants to connect, start a fresh flow with encbird_connect and use only its browser window; never reuse or copy callback data."));
           return;
         }
         const value = url2.searchParams.get("code");
         if (url2.searchParams.has("error") || url2.searchParams.getAll("code").length !== 1 || !value || value.length > 4096) {
           res.writeHead(400).end("Sign-in was not completed.");
-          fail(new SafeError("AUTH_DENIED", "Sign-in was denied or incomplete."));
+          fail(new SafeError("AUTH_DENIED", "Browser sign-in was denied or incomplete. Wait for the learner to choose to sign in, then start a fresh flow with encbird_connect; do not retry automatically."));
           return;
         }
         res.end("Sign-in callback received. Return to your assistant to check the connection.");
@@ -20633,7 +20688,7 @@ async function callback(state, signal, timeoutMs = 18e4) {
         });
       } catch (error2) {
         if (host === "::1" && ["EAFNOSUPPORT", "EADDRNOTAVAIL"].includes(error2.code ?? "")) continue;
-        throw new SafeError("CALLBACK_PORT_BUSY", "Port 18765 is unavailable. Finish the other sign-in and retry; no process was stopped.");
+        throw new SafeError("CALLBACK_PORT_BUSY", "The local sign-in callback could not listen on port 18765. Let any other sign-in finish; if the port remains unavailable, ask the local operator to inspect it. Retry encbird_connect only once the port is available; do not stop unrelated processes.");
       }
     }
   } catch (error2) {
@@ -20661,8 +20716,8 @@ async function tokenRequest(config2, form, secrets, checkpoint) {
   const data = object3(body);
   secrets.add(data.access_token, data.refresh_token, data.id_token);
   if (status !== 200) {
-    if (data.error === "invalid_grant") throw new SafeError("OAUTH_INVALID_GRANT", "This grant can no longer refresh. Run connect for same-account browser recovery.");
-    throw new SafeError("OAUTH_TOKEN_FAILED", "Token exchange is temporarily unavailable. Retry the same operation.");
+    if (data.error === "invalid_grant") throw new SafeError("OAUTH_INVALID_GRANT", form.grant_type === "refresh_token" ? "The stored refresh authorization is no longer usable. Run encbird_connect for same-account browser recovery and complete any requested cleanup before learning resumes." : "The browser sign-in authorization is no longer usable. If the learner still wants to connect, run encbird_connect for a fresh browser flow with the same account if recovering a previous connection. Do not reuse the old callback or repeat a learning write.");
+    throw new SafeError("OAUTH_TOKEN_FAILED", "Sign-in credentials could not be obtained or refreshed. Do not repeat a learning write. After service access is restored, run encbird_disconnect for retained cleanup; use encbird_connect for same-account recovery when reauthenticationRequired is reported. If it persists, ask the operator to check sign-in configuration.");
   }
   await checkpoint?.({
     accessToken: typeof data.access_token === "string" ? data.access_token : void 0,
@@ -20672,7 +20727,7 @@ async function tokenRequest(config2, form, secrets, checkpoint) {
     expiresAt: typeof data.expires_in === "number" && Number.isFinite(data.expires_in) && data.expires_in > 0 && data.expires_in <= 86400 ? Date.now() + data.expires_in * 1e3 : 0
   });
   if (typeof data.access_token !== "string" || !data.access_token || typeof data.expires_in !== "number" || !Number.isFinite(data.expires_in) || data.expires_in <= 0 || data.expires_in > 86400 || typeof data.token_type !== "string" || data.token_type.toLowerCase() !== "bearer" || [data.refresh_token, data.id_token].some((v) => v !== void 0 && (typeof v !== "string" || !v))) {
-    throw new SafeError("INVALID_TOKEN_RESPONSE", "The provider returned invalid credentials.");
+    throw new SafeError("INVALID_TOKEN_RESPONSE", `Sign-in returned incomplete or invalid credentials. ${authCleanup}`);
   }
   return {
     accessToken: data.access_token,
@@ -20684,7 +20739,7 @@ async function tokenRequest(config2, form, secrets, checkpoint) {
 async function discoveryKeys(config2) {
   try {
     const discovery = await requestJson(`${config2.issuer.replace(/\/$/, "")}/.well-known/openid-configuration`);
-    if (discovery.status >= 500) throw new SafeError("OAUTH_VERIFICATION_UNAVAILABLE", "Identity verification is temporarily unavailable. Retry connect.");
+    if (discovery.status >= 500) throw new SafeError("OAUTH_VERIFICATION_UNAVAILABLE", "Account identity verification is temporarily unavailable. After service access is restored, run encbird_connect to start or resume verification; use encbird_disconnect to cancel and clean up any retained flow. Do not bypass verification or repeat learning writes.");
     const doc = object3(discovery.body);
     if (discovery.status !== 200 || doc.issuer !== config2.issuer || doc.authorization_endpoint !== config2.authorizationEndpoint || doc.token_endpoint !== config2.tokenEndpoint || doc.revocation_endpoint !== void 0 && doc.revocation_endpoint !== config2.revocationEndpoint || typeof doc.jwks_uri !== "string") throw new Error();
     const jwksUrl = serviceUrl(doc.jwks_uri);
@@ -20692,15 +20747,15 @@ async function discoveryKeys(config2) {
     return jwksUrl;
   } catch (error2) {
     if (error2 instanceof SafeError && ["NETWORK_ERROR", "OAUTH_VERIFICATION_UNAVAILABLE"].includes(error2.code)) throw error2;
-    throw new SafeError("INVALID_ID_TOKEN", "OAuth discovery did not match the configured issuer and endpoints.");
+    throw new SafeError("INVALID_ID_TOKEN", "Sign-in discovery did not match the configured issuer and endpoints. Ask the EncBird operator to repair configuration before retrying encbird_connect; preserve any cleanup records and do not substitute endpoints.");
   }
 }
 async function verifyIdentity(config2, idToken, nonce) {
-  if (!idToken) throw new SafeError("INVALID_ID_TOKEN", "The provider did not return an identity token.");
+  if (!idToken) throw new SafeError("INVALID_ID_TOKEN", `Sign-in did not return the identity proof required to verify the account. ${authCleanup}`);
   try {
     const jwksUrl = await discoveryKeys(config2);
     const keys = await requestJson(jwksUrl.href);
-    if (keys.status >= 500) throw new SafeError("OAUTH_VERIFICATION_UNAVAILABLE", "Identity verification is temporarily unavailable. Retry connect.");
+    if (keys.status >= 500) throw new SafeError("OAUTH_VERIFICATION_UNAVAILABLE", "Account identity verification is temporarily unavailable. After service access is restored, run encbird_connect to start or resume verification; use encbird_disconnect to cancel and clean up any retained flow. Do not bypass verification or repeat learning writes.");
     if (keys.status !== 200) throw new Error();
     const { payload } = await jwtVerify(idToken, createLocalJWKSet(object3(keys.body)), {
       issuer: config2.issuer,
@@ -20712,8 +20767,9 @@ async function verifyIdentity(config2, idToken, nonce) {
     if (payload.token_use !== "id" || typeof payload.sub !== "string" || !payload.sub || nonce !== void 0 && payload.nonce !== nonce || payload.azp !== void 0 && payload.azp !== config2.clientId) throw new Error();
     return payload.sub;
   } catch (error2) {
-    if (error2 instanceof SafeError && ["NETWORK_ERROR", "OAUTH_VERIFICATION_UNAVAILABLE"].includes(error2.code)) throw error2;
-    throw new SafeError("INVALID_ID_TOKEN", "Identity token signature, issuer, audience, or nonce validation failed.");
+    if (error2 instanceof SafeError && error2.code === "OAUTH_VERIFICATION_UNAVAILABLE") throw new SafeError(error2.code, "Account identity verification is temporarily unavailable. After service access is restored, run encbird_connect to resume the saved verification flow; use encbird_disconnect to cancel and clean up. Do not bypass verification or repeat learning writes.");
+    if (error2 instanceof SafeError && error2.code === "NETWORK_ERROR") throw error2;
+    throw new SafeError("INVALID_ID_TOKEN", `Account identity proof failed signature, issuer, audience, or nonce validation. ${authCleanup}`);
   }
 }
 async function revoke(config2, refreshToken) {
@@ -20722,17 +20778,20 @@ async function revoke(config2, refreshToken) {
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ client_id: config2.clientId, token: refreshToken, token_type_hint: "refresh_token" })
   });
-  if (status < 200 || status >= 300) throw new SafeError("REVOCATION_FAILED", "Provider revocation is pending. Run disconnect again to retry.");
+  if (status < 200 || status >= 300) throw new SafeError("REVOCATION_FAILED", "Sign-in authorization revocation was not confirmed. Run encbird_disconnect after service access is restored to retry pending cleanup; ask the operator if it persists. Preserve credential records and do not claim complete revocation.");
 }
 
 // src/privacy.ts
 var unsafe = /[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}|https?:\/\/|\b(?:AKIA|ASIA)[A-Z0-9]{16}\b|\bsk-[a-z0-9_-]{12,}|-----BEGIN|\b(?:bearer|password|passwd|api[_ -]?key|secret[_ -]?key|access[_ -]?token)\s*[:= ]\s*\S+|\b\d{3}[- .]\d{3,4}[- .]\d{4}\b|\b\d{6}-[1-4]\d{6}\b|\b(?:ssn|social security|passport number|credit card|medical diagnosis)\b|주민등록|여권번호|신용카드번호|비밀번호/i;
-var externalTools = /* @__PURE__ */ new Set(["encbird_save_memory", "encbird_correct_memory", "encbird_delete_memory", "encbird_save_suggested_expressions", "encbird_save_freechat_scenarios"]);
+var externalTools = /* @__PURE__ */ new Set(["encbird_submit_memory_candidates"]);
 function filterExternalInput(name, input, secrets) {
   const visit = (value) => {
     if (typeof value === "string") {
-      if (secrets.contains(value) || /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(value) || externalTools.has(name) && (unsafe.test(value) || /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value))) {
-        throw new SafeError("PRIVACY_FILTERED", "Remove private identifiers or credential content before sharing learning evidence. No request was sent.");
+      if (secrets.contains(value) || /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(value)) {
+        throw new SafeError("PRIVACY_FILTERED", "Input contains known authentication secrets or a token-shaped value. Remove credential content before submitting; never copy tokens into tool input or disguise them to bypass this filter. This call sent no request.");
+      }
+      if (externalTools.has(name) && (unsafe.test(value) || /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value))) {
+        throw new SafeError("PRIVACY_FILTERED", "Learning evidence contains private identifiers, sensitive content, or disallowed control characters. Remove that content and retain only relevant consented evidence before submitting; never disguise it to bypass this filter. This call sent no request.");
       }
     } else if (Array.isArray(value)) value.forEach(visit);
     else if (value && typeof value === "object") Object.values(value).forEach(visit);
@@ -20740,7 +20799,7 @@ function filterExternalInput(name, input, secrets) {
   visit(input);
 }
 
-// src/auth.ts
+// src/connection.ts
 import { createHash as createHash2 } from "node:crypto";
 
 // ../../node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/client.js
@@ -22870,8 +22929,8 @@ var StreamableHTTPClientTransport = class {
         }
         return;
       }
-      const messages = Array.isArray(message2) ? message2 : [message2];
-      const hasRequests = messages.filter((msg) => "method" in msg && "id" in msg && msg.id !== void 0).length > 0;
+      const messages2 = Array.isArray(message2) ? message2 : [message2];
+      const hasRequests = messages2.filter((msg) => "method" in msg && "id" in msg && msg.id !== void 0).length > 0;
       const contentType2 = response.headers.get("content-type");
       const responseMediaType = mediaTypeEssence(contentType2);
       if (hasRequests) {
@@ -22965,19 +23024,11 @@ function domainCode(value) {
   return domainCode(data.error);
 }
 function remoteError(value, fallback = "MCP_TOOL_FAILED", status, pause) {
-  const code = domainCode(value) ?? fallback;
-  if (status === 429 || status === 503) {
-    return new SafeError(
-      domainCode(value) ?? (status === 429 ? "RATE_LIMITED" : "SERVICE_UNAVAILABLE"),
-      "The service requested a pause. Wait before retrying; keep the same input and operation key for writes.",
-      pause
-    );
-  }
-  if (status === 401 || ["AUTH_REQUIRED", "AUTHENTICATION_REQUIRED", "UNAUTHORIZED"].includes(code)) {
-    return new SafeError("AUTH_REQUIRED", "EncBird rejected this connection. Reconnect or retry the same operation after refresh.");
-  }
-  if (code === "CONNECTION_INACTIVE") return new SafeError(code, "This connection is inactive. Run connect for same-account browser recovery.");
-  return new SafeError(code, "EncBird could not complete the request. If retrying a write, keep the same operation key and payload.");
+  const code = domainCode(value);
+  const overloaded = status === 429 || status === 503;
+  if (!code && overloaded) return apiError(status, "API_ERROR", pause);
+  const authentication = status === 401 || !overloaded && ["AUTH_REQUIRED", "AUTHENTICATION_REQUIRED", "UNAUTHORIZED"].includes(code ?? "");
+  return apiError(authentication ? 401 : status ?? 0, code ?? fallback, pause);
 }
 function toolEnvelope(result) {
   let envelope = result.structuredContent;
@@ -22990,7 +23041,7 @@ function toolEnvelope(result) {
   if (result.isError) throw remoteError(envelope);
   const value = object3(envelope);
   if (Object.hasOwn(value, "error")) throw remoteError(value);
-  if (!Object.hasOwn(value, "data")) throw new SafeError("INVALID_RESPONSE", "The MCP result did not contain an EncBird data envelope.");
+  if (!Object.hasOwn(value, "data")) throw new SafeError("INVALID_RESPONSE", `The MCP result did not contain an EncBird data envelope. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
   return value;
 }
 async function boundedBody(response) {
@@ -23004,7 +23055,7 @@ async function boundedBody(response) {
       size += value.length;
       if (size > 1048576) {
         await reader.cancel();
-        throw new SafeError("INVALID_RESPONSE", "The remote MCP response exceeded its size limit.");
+        throw new SafeError("INVALID_RESPONSE", `The remote MCP response exceeded its size limit. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
       }
       chunks.push(value);
     }
@@ -23033,6 +23084,11 @@ async function callRemoteTool(base, currentToken, name, args, timeoutMs = 15e3) 
     try {
       const signal = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...init.signal ? [init.signal] : []]);
       const response = await fetch(endpoint, { ...init, headers, signal, redirect: "error", credentials: "omit" });
+      if (response.status === 401) {
+        await response.body?.cancel().catch(() => {
+        });
+        throw remoteError(void 0, "MCP_HTTP_ERROR", 401);
+      }
       if (response.headers.has("mcp-session-id")) {
         await response.body?.cancel();
         throw new SafeError("MCP_PROTOCOL_ERROR", "The remote MCP server unexpectedly issued a session.");
@@ -23040,7 +23096,7 @@ async function callRemoteTool(base, currentToken, name, args, timeoutMs = 15e3) 
       const mediaType = response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
       if (response.ok && !notification && mediaType !== "application/json") {
         await response.body?.cancel();
-        throw new SafeError("INVALID_RESPONSE", "The remote MCP server must return stateless JSON responses.");
+        throw new SafeError("INVALID_RESPONSE", `The remote MCP server must return stateless JSON responses. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
       }
       const overloaded = response.status === 429 || response.status === 503;
       const pause = overloaded ? retryAfterSeconds(response.headers.get("retry-after")) : void 0;
@@ -23065,12 +23121,12 @@ async function callRemoteTool(base, currentToken, name, args, timeoutMs = 15e3) 
       }
       const message2 = object3(body);
       if (message2.jsonrpc !== "2.0" || message2.id !== request.id || Object.hasOwn(message2, "method") || Object.hasOwn(message2, "result") === Object.hasOwn(message2, "error")) {
-        throw new SafeError("INVALID_RESPONSE", "The remote MCP response did not match its request.");
+        throw new SafeError("INVALID_RESPONSE", `The remote MCP response did not match its request. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
       }
       return new Response(raw, { status: response.status, headers: { "content-type": "application/json" } });
     } catch (error2) {
       if (error2 instanceof SafeError) throw error2;
-      throw new SafeError("NETWORK_ERROR", "The remote MCP request failed. No fallback or automatic retry was attempted.");
+      throw new SafeError("NETWORK_ERROR", `The remote MCP request failed. No fallback or automatic retry was attempted. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
     }
   };
   const guardedFetch = (input, init) => {
@@ -23093,7 +23149,7 @@ async function callRemoteTool(base, currentToken, name, args, timeoutMs = 15e3) 
       if (domainCode(error2.data)) throw remoteError(error2.data);
       throw remoteError(void 0, error2.code === -32601 ? "TOOL_UNAVAILABLE" : "MCP_PROTOCOL_ERROR");
     }
-    throw new SafeError("MCP_PROTOCOL_ERROR", "The remote MCP negotiation or result was invalid. No automatic retry was attempted.");
+    throw new SafeError("MCP_PROTOCOL_ERROR", `The remote MCP negotiation or result was invalid. No automatic retry was attempted. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
   } finally {
     await client.close().catch(() => {
     });
@@ -23101,8 +23157,8 @@ async function callRemoteTool(base, currentToken, name, args, timeoutMs = 15e3) 
   }
 }
 
-// src/auth.ts
-var pending = () => ({ data: { status: "authentication_pending", message: "Finish browser sign-in, then run connect again." } });
+// src/connection.ts
+var authenticationPending = () => ({ data: { status: "authentication_pending", message: "Finish browser sign-in, then run encbird_connect to check progress; use encbird_disconnect to cancel." } });
 var hasCleanup = (g) => !!(g.cleanup?.backend || g.cleanup?.provider);
 var needsLogin = (g) => !!g.cleanup?.backend && (!g.accessToken || g.refreshInvalid || !g.refreshToken && g.expiresAt <= Date.now());
 var incompatible = (a, b) => a.oauth.clientId !== b.oauth.clientId || a.oauth.issuer !== b.oauth.issuer || a.oauth.resource !== b.oauth.resource;
@@ -23114,6 +23170,396 @@ var permanent = (error2) => error2 instanceof SafeError && [
   "REFRESH_TOKEN_REQUIRED",
   "INVALID_CONNECTION"
 ].includes(error2.code);
+var Connection = class {
+  constructor(base, tx, secrets) {
+    this.base = base;
+    this.tx = tx;
+    this.secrets = secrets;
+  }
+  base;
+  tx;
+  secrets;
+  async connect(started, signal, browser, callbackTimeoutMs) {
+    let value = await this.tx.load();
+    if (value?.status === "active") {
+      started(this.connected(value));
+      return;
+    }
+    if (value?.recovery) {
+      if (value.recovery.discard) {
+        const failure2 = await this.discardCandidate(value, true);
+        if (value.recovery) {
+          started(this.cleanupStatus(value, failure2));
+          return;
+        }
+      } else {
+        try {
+          started(await this.resumeRecovery(value, signal));
+        } catch (error2) {
+          const failure2 = signal.aborted ? new SafeError("AUTH_CANCELLED", "Sign-in was cancelled. Do not restart without learner intent. Run encbird_disconnect if cleanup is still pending; preserve credential records until cleanup completes.") : error2;
+          await this.failedCandidate(value, failure2);
+          throw failure2;
+        }
+        return;
+      }
+    }
+    if (value && this.grants(value).some(hasCleanup) && !this.grants(value).some(needsLogin)) {
+      throw new SafeError("CLEANUP_REQUIRED", "The previous connection still needs cleanup. Run encbird_disconnect before encbird_connect. If cleanup reports reauthenticationRequired, connect with the same account to recover it; otherwise wait for cleanup to complete before signing in.");
+    }
+    if (value && this.grants(value).some(hasCleanup) && !value.subject) {
+      throw new SafeError("OWNER_UNKNOWN", "The previous connection has no verified owner. Ask an operator to reconcile the retained cleanup records before reconnecting; do not choose a replacement account, copy tokens, or delete credential or lock files.");
+    }
+    const oauth = await bootstrap(this.base);
+    if (value && incompatible(value, { oauth, expiresAt: 0 })) {
+      throw new SafeError("OAUTH_CLIENT_CHANGED", "The sign-in client, issuer, or resource changed while previous connection records remain. Ask the operator to restore the compatible configuration or reconcile old cleanup before reconnecting. Preserve credential and lock files; do not bypass cleanup with a new scope.");
+    }
+    await discoveryKeys(oauth);
+    value ??= { version: 1, status: "disabled", oauth, expiresAt: 0, cleanup: { backend: false, provider: false } };
+    const values = proof();
+    this.secrets.add(values.verifier, values.state, values.nonce);
+    const listener = await callback(values.state, signal, callbackTimeoutMs);
+    try {
+      await browser(authorizationUrl(oauth, values, !!value.subject));
+      started(authenticationPending());
+      const code = await listener.result;
+      this.secrets.add(code);
+      value.recovery = {
+        grant: { oauth, expiresAt: 0, cleanup: { backend: false, provider: true } },
+        nonce: values.nonce,
+        verified: false,
+        discard: false
+      };
+      await this.tx.save(value);
+      const root = value;
+      await tokenRequest(
+        oauth,
+        { grant_type: "authorization_code", code, redirect_uri: oauth.redirectUri, code_verifier: values.verifier },
+        this.secrets,
+        async (tokens) => {
+          Object.assign(root.recovery.grant, { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, expiresAt: tokens.expiresAt });
+          root.recovery.idToken = tokens.idToken;
+          root.recovery.tokenType = tokens.tokenType;
+          await this.tx.save(root);
+        }
+      );
+      if (signal.aborted) throw new SafeError("AUTH_CANCELLED", "Sign-in was cancelled. Do not restart without learner intent. Run encbird_disconnect if cleanup is still pending; preserve credential records until cleanup completes.");
+      await this.resumeRecovery(value, signal);
+    } catch (error2) {
+      const failure2 = signal.aborted ? new SafeError("AUTH_CANCELLED", "Sign-in was cancelled. Do not restart without learner intent. Run encbird_disconnect if cleanup is still pending; preserve credential records until cleanup completes.") : error2;
+      await this.failedCandidate(value, failure2);
+      throw failure2;
+    } finally {
+      listener.cancel();
+    }
+  }
+  grants(value) {
+    return [value, ...value.pendingGrants ?? []];
+  }
+  connected(value) {
+    return { data: { status: "connected", connectionId: value.connectionId } };
+  }
+  cleanupStatus(value, failure2) {
+    const grants = [...this.grants(value), ...value.recovery ? [value.recovery.grant] : []];
+    const reauthenticationRequired = this.grants(value).some(needsLogin);
+    return { data: {
+      status: "cleanup_pending",
+      credentialsDisabled: true,
+      backendPending: grants.some((g) => g.cleanup?.backend),
+      providerPending: grants.some((g) => g.cleanup?.provider),
+      reauthenticationRequired,
+      message: [
+        failure2 ? safeError(failure2).error.message : reauthenticationRequired ? "Cleanup needs fresh authorization. Run encbird_connect and have the learner sign in to the same account to recover previous connection cleanup." : value.recovery && !value.recovery.discard ? "Recovery is saved. Run encbird_connect to resume it after the reported problem is resolved, or encbird_disconnect to cancel and finish cleanup." : "Connection cleanup is pending. Run encbird_disconnect after the reported problem is resolved; if cleanup still cannot proceed, ask the operator to reconcile the retained records.",
+        "Learning access remains disabled. Preserve credential and lock files; do not claim complete revocation until disconnected."
+      ].filter(Boolean).join(" ")
+    } };
+  }
+  async refresh(root, grant) {
+    if (!grant.refreshToken || grant.refreshInvalid) throw new SafeError("OAUTH_INVALID_GRANT", "The stored connection has no usable refresh authorization. Run encbird_connect and have the learner sign in to the same account to recover pending cleanup before learning resumes.");
+    const previousStatus = root.status;
+    const previousCleanup = root.cleanup;
+    root.status = "pending";
+    root.cleanup ??= { backend: true, provider: true };
+    await this.tx.save(root);
+    try {
+      const tokens = await tokenRequest(
+        grant.oauth,
+        { grant_type: "refresh_token", refresh_token: grant.refreshToken },
+        this.secrets,
+        async (tokens2) => {
+          if (tokens2.refreshToken) grant.refreshToken = tokens2.refreshToken;
+          await this.tx.save(root);
+        }
+      );
+      if (tokens.idToken && await verifyIdentity(grant.oauth, tokens.idToken) !== grant.subject) {
+        throw new SafeError("INVALID_ID_TOKEN", `The refreshed identity did not match the connection. ${authCleanup}`);
+      }
+      grant.accessToken = tokens.accessToken;
+      grant.expiresAt = tokens.expiresAt;
+      root.status = previousStatus;
+      root.cleanup = previousCleanup;
+      await this.tx.save(root);
+    } catch (error2) {
+      if (error2 instanceof SafeError && error2.code === "OAUTH_INVALID_GRANT") grant.refreshInvalid = true;
+      root.status = "disabled";
+      await this.tx.save(root);
+      if (error2 instanceof SafeError && error2.code === "OAUTH_VERIFICATION_UNAVAILABLE") {
+        throw new SafeError(error2.code, "Account identity verification is temporarily unavailable during connection refresh. After verification service access is restored, run encbird_disconnect to finish retained cleanup. If it reports reauthenticationRequired, use encbird_connect for same-account browser recovery. Preserve cleanup records; do not bypass verification or repeat learning writes.");
+      }
+      throw error2;
+    }
+  }
+  async ensureAccess(root, grant) {
+    if (grant.expiresAt <= Date.now() + 3e4) await this.refresh(root, grant);
+    if (!grant.accessToken || grant.expiresAt <= Date.now()) throw new SafeError("OAUTH_INVALID_GRANT", "The connection has no usable access authorization after refresh. Run encbird_connect for same-account recovery and complete pending cleanup before resuming learning.");
+  }
+  async verifyCandidate(value) {
+    const candidate = value.recovery;
+    if (candidate.verified) {
+      if (!value.subject || candidate.grant.subject !== value.subject) throw new SafeError("ACCOUNT_MISMATCH", `The saved recovery identity does not match the previously verified account. ${authCleanup}`);
+      return;
+    }
+    if (!candidate.grant.refreshToken) throw new SafeError("REFRESH_TOKEN_REQUIRED", `Sign-in did not provide the refresh authorization needed to maintain this connection. ${authCleanup}`);
+    if (!candidate.grant.accessToken || candidate.tokenType?.toLowerCase() !== "bearer" || !candidate.grant.expiresAt) {
+      throw new SafeError("INVALID_TOKEN_RESPONSE", `Sign-in returned incomplete or invalid credentials. ${authCleanup}`);
+    }
+    const subject = await verifyIdentity(candidate.grant.oauth, candidate.idToken, candidate.nonce);
+    if (value.subject && subject !== value.subject) throw new SafeError("ACCOUNT_MISMATCH", `The browser sign-in used a different account from the previous connection. Retained cleanup must finish under the original account before learning resumes. ${authCleanup}`);
+    candidate.grant.subject = subject;
+    candidate.verified = true;
+    value.subject ??= subject;
+    delete candidate.idToken;
+    await this.tx.save(value);
+  }
+  confirmRevoked(result, grant) {
+    const data = object3(result);
+    if (data.status !== "revoked" || typeof data.connectionId !== "string" || !data.connectionId || grant.connectionId && data.connectionId !== grant.connectionId) throw new SafeError("INVALID_CONNECTION", "EncBird did not confirm revocation of the expected connection. Keep cleanup records and run encbird_disconnect after service recovery; ask the EncBird operator if confirmation still fails. Do not claim the connection is revoked.");
+  }
+  async previousConnectionId(root, grant) {
+    if (grant.connectionId !== void 0) {
+      if (!/^[0-9a-fA-F]{64}$/.test(grant.connectionId)) throw new SafeError("INVALID_CONNECTION_ID", "The stored previous connection ID is invalid. Ask the operator to reconcile the retained cleanup records before reconnecting. Do not invent an ID, copy tokens, or delete credential or lock files.");
+      if (grant.connectionId !== grant.connectionId.toLowerCase()) {
+        grant.connectionId = grant.connectionId.toLowerCase();
+        await this.tx.save(root);
+      }
+      return grant.connectionId;
+    }
+    try {
+      const family = decodeJwt(grant.accessToken ?? "").origin_jti;
+      if (typeof family !== "string" || !family || family.length > 256 || /[\s#\x00-\x1f\x7f]/.test(family)) throw new Error();
+      grant.connectionId = createHash2("sha256").update(JSON.stringify([grant.oauth.clientId, family])).digest("hex");
+    } catch {
+      throw new SafeError("PREVIOUS_RESOURCE_MISSING", "The previous connection ID cannot be recovered. Ask the operator to reconcile its retained private cleanup records before reconnecting. Do not invent an ID, copy tokens, or delete credential or lock files.");
+    }
+    await this.tx.save(root);
+    return grant.connectionId;
+  }
+  async revokeBackend(root, grant, fresh) {
+    const cleanup = grant.cleanup ??= { backend: true, provider: true };
+    if (cleanup.backend) {
+      if (fresh) {
+        if (!fresh.subject || fresh.subject !== root.subject || grant.subject && grant.subject !== fresh.subject || incompatible(grant, fresh)) {
+          throw new SafeError("ACCOUNT_MISMATCH", "Previous connection cleanup cannot use this different account or sign-in client. Ask the operator to restore the compatible client and recover the original account; preserve pending cleanup records.");
+        }
+        await this.ensureAccess(root, fresh);
+        const connectionId = await this.previousConnectionId(root, grant);
+        this.confirmRevoked(await apiRequest(this.base, fresh.accessToken, "POST", "/connection/revoke-previous", { connectionId }), grant);
+      } else {
+        await this.ensureAccess(root, grant);
+        this.confirmRevoked(await apiRequest(this.base, grant.accessToken, "DELETE", "/connection"), grant);
+      }
+      cleanup.backend = false;
+      await this.tx.save(root);
+    }
+  }
+  async revokeProvider(root, grant) {
+    const cleanup = grant.cleanup ??= { backend: true, provider: true };
+    if (cleanup.backend) throw new SafeError("CLEANUP_REQUIRED", "EncBird connection revocation is still pending. Run encbird_disconnect after service recovery; if it reports reauthenticationRequired, use encbird_connect with the same account. Sign-in cleanup can finish only after EncBird confirms revocation.");
+    delete grant.accessToken;
+    grant.expiresAt = 0;
+    await this.tx.save(root);
+    if (cleanup.provider) {
+      if (grant.refreshToken) await revoke(grant.oauth, grant.refreshToken);
+      cleanup.provider = false;
+      delete grant.refreshToken;
+      await this.tx.save(root);
+    }
+  }
+  async cleanupOlder(root, fresh, signal) {
+    const checkCancelled = () => {
+      if (signal?.aborted) throw new SafeError("AUTH_CANCELLED", "Sign-in was cancelled. Do not restart without learner intent. Run encbird_disconnect if cleanup is still pending; preserve credential records until cleanup completes.");
+    };
+    for (const grant of this.grants(root)) {
+      checkCancelled();
+      if (grant.cleanup?.backend) await this.revokeBackend(root, grant, fresh);
+    }
+    for (const grant of this.grants(root)) {
+      checkCancelled();
+      if (hasCleanup(grant)) await this.revokeProvider(root, grant);
+    }
+  }
+  async resumeRecovery(value, signal) {
+    await this.verifyCandidate(value);
+    const candidate = value.recovery;
+    if (signal?.aborted) throw new SafeError("AUTH_CANCELLED", "Sign-in was cancelled. Do not restart without learner intent. Run encbird_disconnect if cleanup is still pending; preserve credential records until cleanup completes.");
+    try {
+      await this.ensureAccess(value, candidate.grant);
+    } catch (error2) {
+      if (error2 instanceof SafeError && error2.code === "OAUTH_INVALID_GRANT") {
+        if (candidate.grant.cleanup.backend) {
+          value.pendingGrants ??= [];
+          value.pendingGrants.push(candidate.grant);
+          delete value.recovery;
+          await this.tx.save(value);
+        } else {
+          candidate.discard = true;
+          await this.tx.save(value);
+          await this.discardCandidate(value);
+        }
+      }
+      throw error2;
+    }
+    await this.cleanupOlder(value, candidate.grant, signal);
+    if (signal?.aborted) throw new SafeError("AUTH_CANCELLED", "Sign-in was cancelled. Do not restart without learner intent. Run encbird_disconnect if cleanup is still pending; preserve credential records until cleanup completes.");
+    candidate.grant.cleanup.backend = true;
+    await this.tx.save(value);
+    await this.ensureAccess(value, candidate.grant);
+    const result = object3(await apiRequest(this.base, candidate.grant.accessToken, "POST", "/connections", {}));
+    if (result.status !== "active" || typeof result.connectionId !== "string" || !result.connectionId || result.userId !== value.subject) {
+      throw new SafeError("INVALID_CONNECTION", `EncBird returned an invalid connection confirmation or an unexpected identity. ${authCleanup}`);
+    }
+    if (signal?.aborted) throw new SafeError("AUTH_CANCELLED", "Sign-in was cancelled. Do not restart without learner intent. Run encbird_disconnect if cleanup is still pending; preserve credential records until cleanup completes.");
+    const active = { ...candidate.grant, version: 1, status: "active", connectionId: result.connectionId };
+    delete active.cleanup;
+    delete active.refreshInvalid;
+    await this.tx.save(active);
+    return this.connected(active);
+  }
+  async discardCandidate(value, finishOlder = false) {
+    if (!value.recovery) return;
+    const fresh = value.recovery;
+    const olderBackendPending = this.grants(value).some((g) => g.cleanup?.backend);
+    if (fresh.verified && olderBackendPending && !finishOlder && !fresh.grant.refreshInvalid) return;
+    try {
+      if (fresh.verified && olderBackendPending && !fresh.grant.refreshInvalid) await this.cleanupOlder(value, fresh.grant);
+      await this.revokeBackend(value, fresh.grant);
+      await this.revokeProvider(value, fresh.grant);
+    } catch (error2) {
+      const candidate = value.recovery;
+      if (error2 instanceof SafeError && error2.code === "OAUTH_INVALID_GRANT" && candidate.verified && candidate.grant.subject === value.subject && candidate.grant.cleanup?.backend) {
+        value.pendingGrants ??= [];
+        value.pendingGrants.push(candidate.grant);
+        delete value.recovery;
+      }
+      value.status = "disabled";
+      await this.tx.save(value);
+      return error2;
+    }
+    delete value.recovery;
+    if (!this.grants(value).some(hasCleanup) && !value.connectionId && !value.pendingGrants?.length) await this.tx.save();
+    else await this.tx.save(value);
+  }
+  async failedCandidate(value, error2) {
+    if (!value.recovery) return;
+    if (error2 instanceof SafeError && error2.code === "CONNECTION_INACTIVE" && value.recovery.verified) {
+      const grant = value.recovery.grant;
+      grant.refreshInvalid = true;
+      grant.cleanup.backend = false;
+      value.pendingGrants ??= [];
+      value.pendingGrants.push(grant);
+      delete value.recovery;
+      value.status = "disabled";
+      await this.tx.save(value);
+      return;
+    }
+    if (permanent(error2) || !value.recovery.grant.refreshToken) {
+      value.recovery.discard = true;
+      value.status = "disabled";
+      await this.tx.save(value);
+      await this.discardCandidate(value);
+    }
+  }
+  async request(method, path, body) {
+    return this.authenticated({ path, body }, async (token) => apiRequest(this.base, await token(), method, path, body));
+  }
+  async callLearningTool(name, input) {
+    return this.authenticated({ name, input }, (token) => callRemoteTool(this.base, token, name, input));
+  }
+  async authenticated(input, operation) {
+    const value = await this.tx.load();
+    if (!value || value.status !== "active") throw new SafeError("AUTH_REQUIRED", "No active local connection is available. Run encbird_connect and complete or check browser sign-in before using learning tools. If cleanup is required, run encbird_disconnect; use same-account recovery when requested.");
+    filterExternalInput("transport", input, this.secrets);
+    JSON.stringify(input, (key, item) => {
+      filterExternalInput("transport", key, this.secrets);
+      return item;
+    });
+    const token = async () => {
+      checkRequestBudget(value.traffic);
+      if (value.expiresAt <= Date.now() + 6e4) {
+        try {
+          await this.refresh(value, value);
+        } catch (error2) {
+          value.status = "disabled";
+          value.cleanup = { backend: true, provider: true };
+          await this.tx.save(value);
+          throw error2;
+        }
+      }
+      value.traffic = await reserveRequest(value.traffic);
+      await this.tx.save(value);
+      return value.accessToken;
+    };
+    try {
+      return await operation(token);
+    } catch (error2) {
+      if (error2 instanceof SafeError && error2.retryAfterSeconds !== void 0 && value.traffic) {
+        value.traffic.blockedUntil = Date.now() + error2.retryAfterSeconds * 1e3;
+        await this.tx.save(value);
+      }
+      if (error2 instanceof SafeError && error2.code === "AUTH_REQUIRED") {
+        value.expiresAt = 0;
+        await this.tx.save(value);
+        throw new SafeError(error2.code, "EncBird rejected this connection authentication. Do not replay the write automatically. An explicit retry of the exact same operation lets the plugin refresh first; retain the original payload, key, and approval. If refresh fails, follow its cleanup or same-account encbird_connect recovery instructions. Never copy tokens or bypass sign-in.");
+      }
+      if (error2 instanceof SafeError && error2.code === "CONNECTION_INACTIVE") {
+        value.status = "disabled";
+        value.cleanup = { backend: true, provider: true };
+        await this.tx.save(value);
+        await this.cleanup(value);
+      }
+      throw error2;
+    }
+  }
+  async cleanup(value) {
+    value.status = "disabled";
+    value.cleanup ??= { backend: true, provider: true };
+    await this.tx.save(value);
+    const candidate = value.recovery;
+    if (candidate) {
+      candidate.discard = true;
+      await this.tx.save(value);
+    }
+    try {
+      await this.cleanupOlder(value, candidate?.verified ? candidate.grant : void 0);
+    } catch (error2) {
+      value.status = "disabled";
+      await this.tx.save(value);
+      return this.cleanupStatus(value, error2);
+    }
+    if (candidate) {
+      const failure2 = await this.discardCandidate(value);
+      if (value.recovery) return this.cleanupStatus(value, failure2);
+    }
+    await this.tx.save();
+    return { data: { status: "disconnected" } };
+  }
+  async disconnect() {
+    const value = await this.tx.load();
+    if (!value) return { data: { status: "disconnected" } };
+    return this.cleanup(value);
+  }
+};
+
+// src/auth.ts
 var Auth = class {
   constructor(base, store, secrets, browser = openBrowser, callbackTimeoutMs = 18e4) {
     this.base = base;
@@ -23131,7 +23577,7 @@ var Auth = class {
   abort;
   failure;
   async connect() {
-    if (this.task) return pending();
+    if (this.task) return authenticationPending();
     if (this.failure) {
       const failure2 = this.failure;
       this.failure = void 0;
@@ -23144,77 +23590,8 @@ var Auth = class {
     this.abort = new AbortController();
     const signal = this.abort.signal;
     this.task = this.store.withLock(async (tx) => {
-      let value = await tx.load();
-      if (value?.status === "active") {
-        started(this.connected(value));
-        return;
-      }
-      if (value?.recovery) {
-        if (value.recovery.discard) {
-          await this.discardCandidate(tx, value, true);
-          if (value.recovery) {
-            started(this.cleanupStatus(value));
-            return;
-          }
-        } else {
-          try {
-            started(await this.resumeRecovery(tx, value, signal));
-          } catch (error2) {
-            const failure2 = signal.aborted ? new SafeError("AUTH_CANCELLED", "Sign-in was cancelled.") : error2;
-            await this.failedCandidate(tx, value, failure2);
-            throw failure2;
-          }
-          return;
-        }
-      }
-      if (value && this.grants(value).some(hasCleanup) && !this.grants(value).some(needsLogin)) {
-        throw new SafeError("CLEANUP_REQUIRED", "Run disconnect to finish the previous connection cleanup before signing in.");
-      }
-      if (value && this.grants(value).some(hasCleanup) && !value.subject) {
-        throw new SafeError("OWNER_UNKNOWN", "The previous connection has no verified owner. Its cleanup records were retained.");
-      }
-      const oauth = await bootstrap(this.base);
-      if (value && incompatible(value, { oauth, expiresAt: 0 })) {
-        throw new SafeError("OAUTH_CLIENT_CHANGED", "The public OAuth client changed. Previous connection cleanup records were retained.");
-      }
-      await discoveryKeys(oauth);
-      value ??= { version: 1, status: "disabled", oauth, expiresAt: 0, cleanup: { backend: false, provider: false } };
-      const values = proof();
-      this.secrets.add(values.verifier, values.state, values.nonce);
-      const listener = await callback(values.state, signal, this.callbackTimeoutMs);
-      try {
-        await this.browser(authorizationUrl(oauth, values, !!value.subject));
-        started(pending());
-        const code = await listener.result;
-        this.secrets.add(code);
-        value.recovery = {
-          grant: { oauth, expiresAt: 0, cleanup: { backend: false, provider: true } },
-          nonce: values.nonce,
-          verified: false,
-          discard: false
-        };
-        await tx.save(value);
-        const root = value;
-        await tokenRequest(
-          oauth,
-          { grant_type: "authorization_code", code, redirect_uri: oauth.redirectUri, code_verifier: values.verifier },
-          this.secrets,
-          async (tokens) => {
-            Object.assign(root.recovery.grant, { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, expiresAt: tokens.expiresAt });
-            root.recovery.idToken = tokens.idToken;
-            root.recovery.tokenType = tokens.tokenType;
-            await tx.save(root);
-          }
-        );
-        if (signal.aborted) throw new SafeError("AUTH_CANCELLED", "Sign-in was cancelled.");
-        await this.resumeRecovery(tx, value, signal);
-      } catch (error2) {
-        const failure2 = signal.aborted ? new SafeError("AUTH_CANCELLED", "Sign-in was cancelled.") : error2;
-        await this.failedCandidate(tx, value, failure2);
-        throw failure2;
-      } finally {
-        listener.cancel();
-      }
+      const connection = new Connection(this.base, tx, this.secrets);
+      await connection.connect(started, signal, (url2) => this.browser(url2), this.callbackTimeoutMs);
     }).catch((error2) => {
       this.failure = safeError(error2);
       started(this.failure);
@@ -23231,309 +23608,16 @@ var Auth = class {
     this.abort?.abort();
     await this.task;
   }
-  grants(value) {
-    return [value, ...value.pendingGrants ?? []];
-  }
-  connected(value) {
-    return { data: { status: "connected", connectionId: value.connectionId } };
-  }
-  cleanupStatus(value) {
-    const grants = [...this.grants(value), ...value.recovery ? [value.recovery.grant] : []];
-    const reauthenticationRequired = this.grants(value).some(needsLogin);
-    return { data: {
-      status: "cleanup_pending",
-      credentialsDisabled: true,
-      backendPending: grants.some((g) => g.cleanup?.backend),
-      providerPending: grants.some((g) => g.cleanup?.provider),
-      reauthenticationRequired,
-      message: reauthenticationRequired ? "Run connect and sign in to the same account to recover previous connection cleanup." : "Run connect to resume recovery, or disconnect to finish cleanup."
-    } };
-  }
-  async refresh(tx, root, grant) {
-    if (!grant.refreshToken || grant.refreshInvalid) throw new SafeError("OAUTH_INVALID_GRANT", "Run connect for same-account browser recovery.");
-    const previousStatus = root.status;
-    const previousCleanup = root.cleanup;
-    root.status = "pending";
-    root.cleanup ??= { backend: true, provider: true };
-    await tx.save(root);
-    try {
-      const tokens = await tokenRequest(
-        grant.oauth,
-        { grant_type: "refresh_token", refresh_token: grant.refreshToken },
-        this.secrets,
-        async (tokens2) => {
-          if (tokens2.refreshToken) grant.refreshToken = tokens2.refreshToken;
-          await tx.save(root);
-        }
-      );
-      if (tokens.idToken && await verifyIdentity(grant.oauth, tokens.idToken) !== grant.subject) {
-        throw new SafeError("INVALID_ID_TOKEN", "The refreshed identity did not match the connection.");
-      }
-      grant.accessToken = tokens.accessToken;
-      grant.expiresAt = tokens.expiresAt;
-      root.status = previousStatus;
-      root.cleanup = previousCleanup;
-      await tx.save(root);
-    } catch (error2) {
-      if (error2 instanceof SafeError && error2.code === "OAUTH_INVALID_GRANT") grant.refreshInvalid = true;
-      root.status = "disabled";
-      await tx.save(root);
-      throw error2;
-    }
-  }
-  async ensureAccess(tx, root, grant) {
-    if (grant.expiresAt <= Date.now() + 3e4) await this.refresh(tx, root, grant);
-    if (!grant.accessToken || grant.expiresAt <= Date.now()) throw new SafeError("OAUTH_INVALID_GRANT", "A fresh same-account sign-in is required.");
-  }
-  async verifyCandidate(tx, value) {
-    const candidate = value.recovery;
-    if (candidate.verified) {
-      if (!value.subject || candidate.grant.subject !== value.subject) throw new SafeError("ACCOUNT_MISMATCH", "Recovery must retain the previously verified account.");
-      return;
-    }
-    if (!candidate.grant.refreshToken) throw new SafeError("REFRESH_TOKEN_REQUIRED", "Sign-in did not provide refresh credentials.");
-    if (!candidate.grant.accessToken || candidate.tokenType?.toLowerCase() !== "bearer" || !candidate.grant.expiresAt) {
-      throw new SafeError("INVALID_TOKEN_RESPONSE", "The provider returned invalid credentials.");
-    }
-    const subject = await verifyIdentity(candidate.grant.oauth, candidate.idToken, candidate.nonce);
-    if (value.subject && subject !== value.subject) throw new SafeError("ACCOUNT_MISMATCH", "Sign in to the same account as the previous connection. Its cleanup records remain intact.");
-    candidate.grant.subject = subject;
-    candidate.verified = true;
-    value.subject ??= subject;
-    delete candidate.idToken;
-    await tx.save(value);
-  }
-  confirmRevoked(result, grant) {
-    const data = object3(result);
-    if (data.status !== "revoked" || typeof data.connectionId !== "string" || !data.connectionId || grant.connectionId && data.connectionId !== grant.connectionId) throw new SafeError("INVALID_CONNECTION", "Backend connection revocation was not confirmed.");
-  }
-  async previousConnectionId(tx, root, grant) {
-    if (grant.connectionId !== void 0) {
-      if (!/^[0-9a-fA-F]{64}$/.test(grant.connectionId)) throw new SafeError("INVALID_CONNECTION_ID", "The stored previous connection ID is invalid. Cleanup records were retained.");
-      if (grant.connectionId !== grant.connectionId.toLowerCase()) {
-        grant.connectionId = grant.connectionId.toLowerCase();
-        await tx.save(root);
-      }
-      return grant.connectionId;
-    }
-    try {
-      const family = decodeJwt(grant.accessToken ?? "").origin_jti;
-      if (typeof family !== "string" || !family || family.length > 256 || /[\s#\x00-\x1f\x7f]/.test(family)) throw new Error();
-      grant.connectionId = createHash2("sha256").update(JSON.stringify([grant.oauth.clientId, family])).digest("hex");
-    } catch {
-      throw new SafeError("PREVIOUS_RESOURCE_MISSING", "The previous connection ID cannot be recovered. Its private cleanup records were retained.");
-    }
-    await tx.save(root);
-    return grant.connectionId;
-  }
-  async revokeBackend(tx, root, grant, fresh) {
-    const cleanup = grant.cleanup ??= { backend: true, provider: true };
-    if (cleanup.backend) {
-      if (fresh) {
-        if (!fresh.subject || fresh.subject !== root.subject || grant.subject && grant.subject !== fresh.subject || incompatible(grant, fresh)) {
-          throw new SafeError("ACCOUNT_MISMATCH", "Previous grant cleanup requires the same verified account and client.");
-        }
-        await this.ensureAccess(tx, root, fresh);
-        const connectionId = await this.previousConnectionId(tx, root, grant);
-        this.confirmRevoked(await apiRequest(this.base, fresh.accessToken, "POST", "/connection/revoke-previous", { connectionId }), grant);
-      } else {
-        await this.ensureAccess(tx, root, grant);
-        this.confirmRevoked(await apiRequest(this.base, grant.accessToken, "DELETE", "/connection"), grant);
-      }
-      cleanup.backend = false;
-      await tx.save(root);
-    }
-  }
-  async revokeProvider(tx, root, grant) {
-    const cleanup = grant.cleanup ??= { backend: true, provider: true };
-    if (cleanup.backend) throw new SafeError("CLEANUP_REQUIRED", "Backend revocation must finish before provider cleanup.");
-    delete grant.accessToken;
-    grant.expiresAt = 0;
-    await tx.save(root);
-    if (cleanup.provider) {
-      if (grant.refreshToken) await revoke(grant.oauth, grant.refreshToken);
-      cleanup.provider = false;
-      delete grant.refreshToken;
-      await tx.save(root);
-    }
-  }
-  async cleanupOlder(tx, root, fresh, signal) {
-    const checkCancelled = () => {
-      if (signal?.aborted) throw new SafeError("AUTH_CANCELLED", "Sign-in was cancelled.");
-    };
-    for (const grant of this.grants(root)) {
-      checkCancelled();
-      if (grant.cleanup?.backend) await this.revokeBackend(tx, root, grant, fresh);
-    }
-    for (const grant of this.grants(root)) {
-      checkCancelled();
-      if (hasCleanup(grant)) await this.revokeProvider(tx, root, grant);
-    }
-  }
-  async resumeRecovery(tx, value, signal) {
-    await this.verifyCandidate(tx, value);
-    const candidate = value.recovery;
-    if (signal?.aborted) throw new SafeError("AUTH_CANCELLED", "Sign-in was cancelled.");
-    try {
-      await this.ensureAccess(tx, value, candidate.grant);
-    } catch (error2) {
-      if (error2 instanceof SafeError && error2.code === "OAUTH_INVALID_GRANT") {
-        if (candidate.grant.cleanup.backend) {
-          value.pendingGrants ??= [];
-          value.pendingGrants.push(candidate.grant);
-          delete value.recovery;
-          await tx.save(value);
-        } else {
-          candidate.discard = true;
-          await tx.save(value);
-          await this.discardCandidate(tx, value);
-        }
-      }
-      throw error2;
-    }
-    await this.cleanupOlder(tx, value, candidate.grant, signal);
-    if (signal?.aborted) throw new SafeError("AUTH_CANCELLED", "Sign-in was cancelled.");
-    candidate.grant.cleanup.backend = true;
-    await tx.save(value);
-    await this.ensureAccess(tx, value, candidate.grant);
-    const result = object3(await apiRequest(this.base, candidate.grant.accessToken, "POST", "/connections", {}));
-    if (result.status !== "active" || typeof result.connectionId !== "string" || !result.connectionId || result.userId !== value.subject) {
-      throw new SafeError("INVALID_CONNECTION", "EncBird returned a connection for an unexpected identity.");
-    }
-    if (signal?.aborted) throw new SafeError("AUTH_CANCELLED", "Sign-in was cancelled.");
-    const active = { ...candidate.grant, version: 1, status: "active", connectionId: result.connectionId };
-    delete active.cleanup;
-    delete active.refreshInvalid;
-    await tx.save(active);
-    return this.connected(active);
-  }
-  async discardCandidate(tx, value, finishOlder = false) {
-    if (!value.recovery) return;
-    const fresh = value.recovery;
-    const olderBackendPending = this.grants(value).some((g) => g.cleanup?.backend);
-    if (fresh.verified && olderBackendPending && !finishOlder && !fresh.grant.refreshInvalid) return;
-    try {
-      if (fresh.verified && olderBackendPending && !fresh.grant.refreshInvalid) await this.cleanupOlder(tx, value, fresh.grant);
-      await this.revokeBackend(tx, value, fresh.grant);
-      await this.revokeProvider(tx, value, fresh.grant);
-    } catch (error2) {
-      const candidate = value.recovery;
-      if (error2 instanceof SafeError && error2.code === "OAUTH_INVALID_GRANT" && candidate.verified && candidate.grant.subject === value.subject && candidate.grant.cleanup?.backend) {
-        value.pendingGrants ??= [];
-        value.pendingGrants.push(candidate.grant);
-        delete value.recovery;
-      }
-      value.status = "disabled";
-      await tx.save(value);
-      return;
-    }
-    delete value.recovery;
-    if (!this.grants(value).some(hasCleanup) && !value.connectionId && !value.pendingGrants?.length) await tx.save();
-    else await tx.save(value);
-  }
-  async failedCandidate(tx, value, error2) {
-    if (!value.recovery) return;
-    if (error2 instanceof SafeError && error2.code === "CONNECTION_INACTIVE" && value.recovery.verified) {
-      const grant = value.recovery.grant;
-      grant.refreshInvalid = true;
-      grant.cleanup.backend = false;
-      value.pendingGrants ??= [];
-      value.pendingGrants.push(grant);
-      delete value.recovery;
-      value.status = "disabled";
-      await tx.save(value);
-      return;
-    }
-    if (permanent(error2) || !value.recovery.grant.refreshToken) {
-      value.recovery.discard = true;
-      value.status = "disabled";
-      await tx.save(value);
-      await this.discardCandidate(tx, value);
-    }
-  }
   async request(method, path, body) {
-    return this.authenticated({ path, body }, async (token) => apiRequest(this.base, await token(), method, path, body));
+    return this.store.withLock((tx) => new Connection(this.base, tx, this.secrets).request(method, path, body));
   }
   async callLearningTool(name, input) {
-    return this.authenticated({ name, input }, (token) => callRemoteTool(this.base, token, name, input));
-  }
-  async authenticated(input, operation) {
-    return this.store.withLock(async (tx) => {
-      const value = await tx.load();
-      if (!value || value.status !== "active") throw new SafeError("AUTH_REQUIRED", "Connect to EncBird before using learning tools.");
-      filterExternalInput("transport", input, this.secrets);
-      JSON.stringify(input, (key, item) => {
-        filterExternalInput("transport", key, this.secrets);
-        return item;
-      });
-      const token = async () => {
-        checkRequestBudget(value.traffic);
-        if (value.expiresAt <= Date.now() + 6e4) {
-          try {
-            await this.refresh(tx, value, value);
-          } catch (error2) {
-            value.status = "disabled";
-            value.cleanup = { backend: true, provider: true };
-            await tx.save(value);
-            throw error2;
-          }
-        }
-        value.traffic = await reserveRequest(value.traffic);
-        await tx.save(value);
-        return value.accessToken;
-      };
-      try {
-        return await operation(token);
-      } catch (error2) {
-        if (error2 instanceof SafeError && error2.retryAfterSeconds !== void 0) {
-          value.traffic.blockedUntil = Date.now() + error2.retryAfterSeconds * 1e3;
-          await tx.save(value);
-        }
-        if (error2 instanceof SafeError && error2.code === "AUTH_REQUIRED") {
-          value.expiresAt = 0;
-          await tx.save(value);
-        }
-        if (error2 instanceof SafeError && error2.code === "CONNECTION_INACTIVE") {
-          value.status = "disabled";
-          value.cleanup = { backend: true, provider: true };
-          await tx.save(value);
-          await this.cleanup(tx, value);
-        }
-        throw error2;
-      }
-    });
-  }
-  async cleanup(tx, value) {
-    value.status = "disabled";
-    value.cleanup ??= { backend: true, provider: true };
-    await tx.save(value);
-    const candidate = value.recovery;
-    if (candidate) {
-      candidate.discard = true;
-      await tx.save(value);
-    }
-    try {
-      await this.cleanupOlder(tx, value, candidate?.verified ? candidate.grant : void 0);
-    } catch {
-      value.status = "disabled";
-      await tx.save(value);
-      return this.cleanupStatus(value);
-    }
-    if (candidate) {
-      await this.discardCandidate(tx, value);
-      if (value.recovery) return this.cleanupStatus(value);
-    }
-    await tx.save();
-    return { data: { status: "disconnected" } };
+    return this.store.withLock((tx) => new Connection(this.base, tx, this.secrets).callLearningTool(name, input));
   }
   async disconnect() {
     await this.cancel();
     this.failure = void 0;
-    return this.store.withLock(async (tx) => {
-      const value = await tx.load();
-      if (!value) return { data: { status: "disconnected" } };
-      return this.cleanup(tx, value);
-    });
+    return this.store.withLock((tx) => new Connection(this.base, tx, this.secrets).disconnect());
   }
 };
 
@@ -23544,6 +23628,14 @@ import { mkdir, lstat, open as open2, rename, unlink, realpath } from "node:fs/p
 import { join, resolve } from "node:path";
 import { createHash as createHash3, randomUUID } from "node:crypto";
 import { homedir, hostname } from "node:os";
+async function storageIO(action, fn) {
+  try {
+    return await fn();
+  } catch (error2) {
+    if (error2 instanceof SafeError) throw error2;
+    throw new SafeError("INTERNAL_ERROR", `The plugin could not ${action}. ${storageRecovery} ${uncertainOutcome}`);
+  }
+}
 var CredentialStore = class {
   constructor(base, clientName, secrets, directory) {
     this.base = base;
@@ -23559,14 +23651,16 @@ var CredentialStore = class {
   async check(path, directory = false) {
     const stat = await lstat(path);
     if (stat.isSymbolicLink() || (directory ? !stat.isDirectory() : !stat.isFile()) || (stat.mode & 63) !== 0 || stat.uid !== process.getuid?.() || !directory && stat.nlink !== 1) {
-      throw new SafeError("UNSAFE_CREDENTIALS", "Credential storage must be private, owned by this user, and free of symbolic links.");
+      throw new SafeError("UNSAFE_CREDENTIALS", `Credential storage failed its ownership, permissions, file type, or link safety check. ${storageRecovery}`);
     }
   }
   async withLock(fn) {
-    if (process.platform === "win32") throw new SafeError("UNSUPPORTED_PLATFORM", "Private credential storage currently supports macOS and Linux.");
-    await mkdir(this.directory, { recursive: true, mode: 448 });
-    await this.check(this.directory, true);
-    if (await realpath(this.directory) !== this.directory) throw new SafeError("UNSAFE_CREDENTIALS", "Use a canonical credential directory without symbolic links.");
+    if (process.platform === "win32") throw new SafeError("UNSUPPORTED_PLATFORM", "Private credential storage requires macOS or Linux. Use a supported local desktop before connecting; do not move credential files between machines or bypass storage checks.");
+    await storageIO("prepare private credential storage", async () => {
+      await mkdir(this.directory, { recursive: true, mode: 448 });
+      await this.check(this.directory, true);
+      if (await realpath(this.directory) !== this.directory) throw new SafeError("UNSAFE_CREDENTIALS", `The credential directory resolves through a symbolic link. Ask the local operator to restore its canonical path without abandoning pending cleanup. ${storageRecovery}`);
+    });
     let compromised = false;
     let release;
     try {
@@ -23580,13 +23674,13 @@ var CredentialStore = class {
         }
       });
     } catch {
-      throw new SafeError("AUTH_BUSY", "Another EncBird process is updating this connection. Retry shortly.");
+      throw new SafeError("AUTH_BUSY", "The connection lock could not be acquired. Let any ongoing sign-in or connection operation finish, then retry. If contention persists, ask the local operator to inspect storage and process ownership; do not delete lock or credential files.");
     }
     const assertLock = () => {
-      if (compromised) throw new SafeError("AUTH_LOCK_LOST", "Credential lock was lost. Reconnect before continuing.");
+      if (compromised) throw new SafeError("AUTH_LOCK_LOST", "The connection lock was lost; credential updates and any write outcome may be uncertain. Stop learning calls and ask the local operator to resolve competing processes and inspect storage. Preserve lock and credential files; after repair, check existing results and use encbird_disconnect for retained cleanup.");
     };
     const transaction = {
-      load: async () => {
+      load: () => storageIO("read the private connection record", async () => {
         assertLock();
         try {
           await this.check(this.path);
@@ -23596,9 +23690,10 @@ var CredentialStore = class {
         }
         const file = await open2(this.path, constants.O_RDONLY | constants.O_NOFOLLOW);
         try {
-          const stat = await file.stat();
+          const stat = await storageIO("inspect the private connection record", () => file.stat());
           if (stat.size > 1048576) throw new Error();
-          const value = JSON.parse(await file.readFile("utf8"));
+          const raw = await storageIO("read the private connection record", () => file.readFile("utf8"));
+          const value = JSON.parse(raw);
           if (value.version !== 1 || !["active", "pending", "disabled"].includes(value.status) || !Number.isFinite(value.expiresAt) || [value.accessToken, value.refreshToken, value.subject, value.connectionId].some((v) => v !== void 0 && typeof v !== "string") || value.status === "active" && (!value.accessToken || !value.refreshToken || !value.connectionId) || value.status !== "active" && (!value.cleanup || typeof value.cleanup.backend !== "boolean" || typeof value.cleanup.provider !== "boolean")) throw new Error();
           const validateGrant = (grant) => {
             if (!grant || !Number.isFinite(grant.expiresAt) || [grant.accessToken, grant.refreshToken, grant.subject, grant.connectionId].some((v) => v !== void 0 && typeof v !== "string") || grant.refreshInvalid !== void 0 && typeof grant.refreshInvalid !== "boolean" || grant.cleanup && (typeof grant.cleanup.backend !== "boolean" || typeof grant.cleanup.provider !== "boolean")) throw new Error();
@@ -23623,13 +23718,14 @@ var CredentialStore = class {
           }
           if (value.status === "active" && (value.recovery || value.pendingGrants?.length)) throw new Error();
           return value;
-        } catch {
-          throw new SafeError("INVALID_CREDENTIALS", "Credential storage is invalid. Restore or remove it locally before reconnecting.");
+        } catch (error2) {
+          if (error2 instanceof SafeError && error2.code === "INTERNAL_ERROR") throw error2;
+          throw new SafeError("INVALID_CREDENTIALS", `Credential storage is corrupt or incompatible, so the plugin cannot safely interpret its connection and cleanup records. ${storageRecovery}`);
         } finally {
           await file.close();
         }
-      },
-      save: async (value) => {
+      }),
+      save: (value) => storageIO("persist the private connection and cleanup record", async () => {
         assertLock();
         if (!value) {
           await unlink(this.path).catch((error2) => {
@@ -23661,7 +23757,7 @@ var CredentialStore = class {
         } finally {
           await dir.close();
         }
-      }
+      })
     };
     try {
       return await fn(transaction);
@@ -23679,12 +23775,12 @@ var import__ = __toESM(require__(), 1);
 var tools_default = {
   apiVersion: "1",
   status: "backend-aligned",
-  contractVersion: "1.0.0",
-  openapiSha256: "102faea6930899ca16373ac45764c0c135bc5865716a39721cacceac429d7035",
+  contractVersion: "3.0.0",
+  openapiSha256: "51fd2e8f4c85fd14b5f6a2ecd6ffd3549c0adc2219141d3e0f346213a33ecca7",
   tools: [
     {
       name: "encbird_get_context",
-      description: "Read stored learning level without private profile fields.",
+      description: "Read the learner display name and CEFR level without private account fields or raw memory.",
       inputSchema: {
         type: "object",
         properties: {},
@@ -23702,10 +23798,14 @@ var tools_default = {
               },
               cefrLevel: {
                 type: "string"
+              },
+              name: {
+                type: "string"
               }
             },
             required: [
               "dataSource",
+              "name",
               "cefrLevel"
             ],
             additionalProperties: false
@@ -24580,652 +24680,8 @@ var tools_default = {
       }
     },
     {
-      name: "encbird_save_memory",
-      description: "Save permitted host messages and evidence-grounded learning facts.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          operationKey: {
-            type: "string",
-            maxLength: 160,
-            minLength: 1,
-            "x-maxUtf8Bytes": 160
-          },
-          sourceHost: {
-            type: "string",
-            maxLength: 120,
-            minLength: 1,
-            "x-maxUtf8Bytes": 120
-          },
-          sourceSessionId: {
-            type: "string",
-            maxLength: 160,
-            minLength: 1,
-            "x-maxUtf8Bytes": 160
-          },
-          messages: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  maxLength: 160,
-                  minLength: 1,
-                  "x-maxUtf8Bytes": 160
-                },
-                role: {
-                  type: "string",
-                  enum: [
-                    "user",
-                    "assistant",
-                    "generated"
-                  ]
-                },
-                content: {
-                  type: "string",
-                  maxLength: 4e3,
-                  minLength: 1,
-                  "x-maxUtf8Bytes": 4e3
-                },
-                observedAt: {
-                  type: "string",
-                  minLength: 1,
-                  pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
-                  description: "Actual observation timestamp; at most five minutes in the future."
-                }
-              },
-              required: [
-                "id",
-                "role",
-                "content",
-                "observedAt"
-              ],
-              additionalProperties: false
-            },
-            minItems: 1,
-            maxItems: 80
-          },
-          facts: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                category: {
-                  type: "string",
-                  enum: [
-                    "profile",
-                    "interest",
-                    "work",
-                    "learning"
-                  ]
-                },
-                key: {
-                  type: "string",
-                  pattern: "^[a-z][a-z0-9_.:-]{0,159}$",
-                  maxLength: 160,
-                  "x-maxUtf8Bytes": 160
-                },
-                kind: {
-                  type: "string",
-                  enum: [
-                    "state",
-                    "event",
-                    "plan",
-                    "habit",
-                    "weakness",
-                    "strength"
-                  ]
-                },
-                content: {
-                  type: "string",
-                  minLength: 1,
-                  maxLength: 2e3,
-                  "x-maxUtf8Bytes": 2e3
-                },
-                occurredOn: {
-                  type: "string",
-                  pattern: "^(?:\\d{4}-\\d{2}-\\d{2})?$",
-                  description: "Optional source-grounded date; future dates require kind plan."
-                },
-                evidence: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      messageId: {
-                        type: "string",
-                        minLength: 1,
-                        maxLength: 160
-                      },
-                      quote: {
-                        type: "string",
-                        minLength: 1,
-                        maxLength: 4e3,
-                        "x-maxUtf8Bytes": 4e3
-                      }
-                    },
-                    required: [
-                      "messageId",
-                      "quote"
-                    ],
-                    additionalProperties: false
-                  },
-                  minItems: 1,
-                  maxItems: 80
-                }
-              },
-              required: [
-                "category",
-                "key",
-                "kind",
-                "content",
-                "evidence"
-              ],
-              additionalProperties: false,
-              allOf: [
-                {
-                  if: {
-                    properties: {
-                      category: {
-                        const: "learning"
-                      }
-                    },
-                    required: [
-                      "category"
-                    ]
-                  },
-                  then: {
-                    properties: {
-                      kind: {
-                        enum: [
-                          "weakness",
-                          "strength"
-                        ]
-                      },
-                      evidence: {
-                        minItems: 2,
-                        type: "array"
-                      }
-                    }
-                  },
-                  else: {
-                    properties: {
-                      kind: {
-                        enum: [
-                          "state",
-                          "event",
-                          "plan",
-                          "habit"
-                        ]
-                      }
-                    }
-                  }
-                }
-              ],
-              description: "Evidence quotes must exactly occur in distinct cited role=user source messages. Learning facts require four actual user messages and two independent evidence messages."
-            },
-            maxItems: 20
-          }
-        },
-        required: [
-          "operationKey",
-          "sourceHost",
-          "sourceSessionId",
-          "messages"
-        ],
-        additionalProperties: false
-      },
-      outputSchema: {
-        type: "object",
-        properties: {
-          data: {
-            type: "object",
-            properties: {
-              operationId: {
-                type: "string"
-              },
-              status: {
-                type: "string"
-              },
-              facts: {
-                type: [
-                  "array",
-                  "null"
-                ],
-                items: {
-                  type: "object",
-                  properties: {
-                    factId: {
-                      type: "string"
-                    },
-                    category: {
-                      type: "string"
-                    },
-                    version: {
-                      type: "integer"
-                    },
-                    status: {
-                      type: "string"
-                    }
-                  },
-                  required: [
-                    "factId",
-                    "category",
-                    "version",
-                    "status"
-                  ],
-                  additionalProperties: false
-                }
-              }
-            },
-            required: [
-              "operationId",
-              "status",
-              "facts"
-            ],
-            additionalProperties: false
-          }
-        },
-        required: [
-          "data"
-        ],
-        additionalProperties: false
-      }
-    },
-    {
-      name: "encbird_correct_memory",
-      description: "Correct a versioned external learning fact with new user evidence.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          operationKey: {
-            type: "string",
-            maxLength: 160,
-            minLength: 1,
-            "x-maxUtf8Bytes": 160
-          },
-          sourceHost: {
-            type: "string",
-            maxLength: 120,
-            minLength: 1,
-            "x-maxUtf8Bytes": 120
-          },
-          sourceSessionId: {
-            type: "string",
-            maxLength: 160,
-            minLength: 1,
-            "x-maxUtf8Bytes": 160
-          },
-          messages: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  maxLength: 160,
-                  minLength: 1,
-                  "x-maxUtf8Bytes": 160
-                },
-                role: {
-                  type: "string",
-                  enum: [
-                    "user",
-                    "assistant",
-                    "generated"
-                  ]
-                },
-                content: {
-                  type: "string",
-                  maxLength: 4e3,
-                  minLength: 1,
-                  "x-maxUtf8Bytes": 4e3
-                },
-                observedAt: {
-                  type: "string",
-                  minLength: 1,
-                  pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
-                  description: "Actual observation timestamp; at most five minutes in the future."
-                }
-              },
-              required: [
-                "id",
-                "role",
-                "content",
-                "observedAt"
-              ],
-              additionalProperties: false
-            },
-            minItems: 1,
-            maxItems: 80
-          },
-          target: {
-            type: "object",
-            properties: {
-              factId: {
-                type: "string",
-                minLength: 64,
-                maxLength: 64,
-                pattern: "^[0-9a-fA-F]+$",
-                "x-maxUtf8Bytes": 64
-              },
-              category: {
-                type: "string",
-                enum: [
-                  "profile",
-                  "interest",
-                  "work",
-                  "learning"
-                ]
-              },
-              version: {
-                type: "integer",
-                minimum: 1
-              }
-            },
-            required: [
-              "factId",
-              "category",
-              "version"
-            ],
-            additionalProperties: false
-          },
-          fact: {
-            type: "object",
-            properties: {
-              category: {
-                type: "string",
-                enum: [
-                  "profile",
-                  "interest",
-                  "work",
-                  "learning"
-                ]
-              },
-              key: {
-                type: "string",
-                pattern: "^[a-z][a-z0-9_.:-]{0,159}$",
-                maxLength: 160,
-                "x-maxUtf8Bytes": 160
-              },
-              kind: {
-                type: "string",
-                enum: [
-                  "state",
-                  "event",
-                  "plan",
-                  "habit",
-                  "weakness",
-                  "strength"
-                ]
-              },
-              content: {
-                type: "string",
-                minLength: 1,
-                maxLength: 2e3,
-                "x-maxUtf8Bytes": 2e3
-              },
-              occurredOn: {
-                type: "string",
-                pattern: "^(?:\\d{4}-\\d{2}-\\d{2})?$",
-                description: "Optional source-grounded date; future dates require kind plan."
-              },
-              evidence: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    messageId: {
-                      type: "string",
-                      minLength: 1,
-                      maxLength: 160
-                    },
-                    quote: {
-                      type: "string",
-                      minLength: 1,
-                      maxLength: 4e3,
-                      "x-maxUtf8Bytes": 4e3
-                    }
-                  },
-                  required: [
-                    "messageId",
-                    "quote"
-                  ],
-                  additionalProperties: false
-                },
-                minItems: 1,
-                maxItems: 80
-              }
-            },
-            required: [
-              "category",
-              "key",
-              "kind",
-              "content",
-              "evidence"
-            ],
-            additionalProperties: false,
-            allOf: [
-              {
-                if: {
-                  properties: {
-                    category: {
-                      const: "learning"
-                    }
-                  },
-                  required: [
-                    "category"
-                  ]
-                },
-                then: {
-                  properties: {
-                    kind: {
-                      enum: [
-                        "weakness",
-                        "strength"
-                      ]
-                    },
-                    evidence: {
-                      minItems: 2,
-                      type: "array"
-                    }
-                  }
-                },
-                else: {
-                  properties: {
-                    kind: {
-                      enum: [
-                        "state",
-                        "event",
-                        "plan",
-                        "habit"
-                      ]
-                    }
-                  }
-                }
-              }
-            ],
-            description: "Evidence quotes must exactly occur in distinct cited role=user source messages. Learning facts require four actual user messages and two independent evidence messages."
-          }
-        },
-        required: [
-          "operationKey",
-          "sourceHost",
-          "sourceSessionId",
-          "messages",
-          "target",
-          "fact"
-        ],
-        additionalProperties: false
-      },
-      outputSchema: {
-        type: "object",
-        properties: {
-          data: {
-            type: "object",
-            properties: {
-              operationId: {
-                type: "string"
-              },
-              status: {
-                type: "string"
-              },
-              facts: {
-                type: [
-                  "array",
-                  "null"
-                ],
-                items: {
-                  type: "object",
-                  properties: {
-                    factId: {
-                      type: "string"
-                    },
-                    category: {
-                      type: "string"
-                    },
-                    version: {
-                      type: "integer"
-                    },
-                    status: {
-                      type: "string"
-                    }
-                  },
-                  required: [
-                    "factId",
-                    "category",
-                    "version",
-                    "status"
-                  ],
-                  additionalProperties: false
-                }
-              }
-            },
-            required: [
-              "operationId",
-              "status",
-              "facts"
-            ],
-            additionalProperties: false
-          }
-        },
-        required: [
-          "data"
-        ],
-        additionalProperties: false
-      }
-    },
-    {
-      name: "encbird_delete_memory",
-      description: "Delete a versioned external learning fact and invalidate dependent recommendations.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          operationKey: {
-            type: "string",
-            maxLength: 160,
-            minLength: 1,
-            "x-maxUtf8Bytes": 160
-          },
-          target: {
-            type: "object",
-            properties: {
-              factId: {
-                type: "string",
-                minLength: 64,
-                maxLength: 64,
-                pattern: "^[0-9a-fA-F]+$",
-                "x-maxUtf8Bytes": 64
-              },
-              category: {
-                type: "string",
-                enum: [
-                  "profile",
-                  "interest",
-                  "work",
-                  "learning"
-                ]
-              },
-              version: {
-                type: "integer",
-                minimum: 1
-              }
-            },
-            required: [
-              "factId",
-              "category",
-              "version"
-            ],
-            additionalProperties: false
-          }
-        },
-        required: [
-          "operationKey",
-          "target"
-        ],
-        additionalProperties: false
-      },
-      outputSchema: {
-        type: "object",
-        properties: {
-          data: {
-            type: "object",
-            properties: {
-              operationId: {
-                type: "string"
-              },
-              status: {
-                type: "string"
-              },
-              facts: {
-                type: [
-                  "array",
-                  "null"
-                ],
-                items: {
-                  type: "object",
-                  properties: {
-                    factId: {
-                      type: "string"
-                    },
-                    category: {
-                      type: "string"
-                    },
-                    version: {
-                      type: "integer"
-                    },
-                    status: {
-                      type: "string"
-                    }
-                  },
-                  required: [
-                    "factId",
-                    "category",
-                    "version",
-                    "status"
-                  ],
-                  additionalProperties: false
-                }
-              }
-            },
-            required: [
-              "operationId",
-              "status",
-              "facts"
-            ],
-            additionalProperties: false
-          }
-        },
-        required: [
-          "data"
-        ],
-        additionalProperties: false
-      }
-    },
-    {
       name: "encbird_list_suggested_expressions",
-      description: "Read current internal and external suggested expressions.",
+      description: "Read EncBird-generated suggested expressions.",
       inputSchema: {
         type: "object",
         properties: {},
@@ -25243,69 +24699,6 @@ var tools_default = {
             items: {
               type: "object",
               properties: {
-                external: {
-                  type: "object",
-                  properties: {
-                    sourceHost: {
-                      type: "string"
-                    },
-                    sourceSessionId: {
-                      type: "string"
-                    },
-                    evidenceIds: {
-                      type: [
-                        "array",
-                        "null"
-                      ],
-                      items: {
-                        type: "string"
-                      }
-                    },
-                    observedAt: {
-                      type: "string"
-                    },
-                    generatedBy: {
-                      type: "string"
-                    },
-                    factRefs: {
-                      type: [
-                        "array",
-                        "null"
-                      ],
-                      items: {
-                        type: "object",
-                        properties: {
-                          factId: {
-                            type: "string"
-                          },
-                          category: {
-                            type: "string"
-                          },
-                          version: {
-                            type: "integer"
-                          }
-                        },
-                        required: [
-                          "factId",
-                          "category",
-                          "version"
-                        ],
-                        additionalProperties: false
-                      }
-                    },
-                    invalidated: {
-                      type: "boolean"
-                    }
-                  },
-                  required: [
-                    "sourceHost",
-                    "sourceSessionId",
-                    "evidenceIds",
-                    "observedAt",
-                    "generatedBy"
-                  ],
-                  additionalProperties: false
-                },
                 reason: {
                   type: "string"
                 },
@@ -25322,7 +24715,14 @@ var tools_default = {
                   type: "string"
                 },
                 source: {
-                  type: "string"
+                  type: "string",
+                  enum: [
+                    "chatbot",
+                    "diarychat",
+                    "pictochat",
+                    "podcast",
+                    "office-raid"
+                  ]
                 },
                 sourceSessionId: {
                   type: "string"
@@ -25335,15 +24735,6 @@ var tools_default = {
                 },
                 updatedAt: {
                   type: "string"
-                },
-                phraseOrigin: {
-                  type: "string",
-                  enum: [
-                    "user_expression",
-                    "quoted_expression",
-                    "host_generated"
-                  ],
-                  description: "Recorded expression origin. Omitted for legacy rows; absence does not establish learner usage."
                 }
               },
               required: [
@@ -25368,217 +24759,8 @@ var tools_default = {
       }
     },
     {
-      name: "encbird_save_suggested_expressions",
-      description: "Save expression candidates with explicit actual-user, quoted, or host-generated origin and referenced learner evidence.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          operationKey: {
-            type: "string",
-            maxLength: 160,
-            minLength: 1,
-            "x-maxUtf8Bytes": 160
-          },
-          sourceHost: {
-            type: "string",
-            maxLength: 120,
-            minLength: 1,
-            "x-maxUtf8Bytes": 120
-          },
-          sourceSessionId: {
-            type: "string",
-            maxLength: 160,
-            minLength: 1,
-            "x-maxUtf8Bytes": 160
-          },
-          messages: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  maxLength: 160,
-                  minLength: 1,
-                  "x-maxUtf8Bytes": 160
-                },
-                role: {
-                  type: "string",
-                  enum: [
-                    "user",
-                    "assistant",
-                    "generated"
-                  ]
-                },
-                content: {
-                  type: "string",
-                  maxLength: 4e3,
-                  minLength: 1,
-                  "x-maxUtf8Bytes": 4e3
-                },
-                observedAt: {
-                  type: "string",
-                  minLength: 1,
-                  pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
-                  description: "Actual observation timestamp; at most five minutes in the future."
-                }
-              },
-              required: [
-                "id",
-                "role",
-                "content",
-                "observedAt"
-              ],
-              additionalProperties: false
-            },
-            minItems: 1,
-            maxItems: 80
-          },
-          candidates: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                phrase: {
-                  type: "string",
-                  maxLength: 300,
-                  minLength: 1,
-                  "x-maxUtf8Bytes": 300
-                },
-                meaningKr: {
-                  type: "string",
-                  maxLength: 1e3,
-                  "x-maxUtf8Bytes": 1e3
-                },
-                reason: {
-                  type: "string",
-                  maxLength: 1e3,
-                  minLength: 1,
-                  "x-maxUtf8Bytes": 1e3
-                },
-                evidenceIds: {
-                  type: "array",
-                  items: {
-                    type: "string"
-                  },
-                  minItems: 1,
-                  maxItems: 80
-                },
-                factRefs: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      factId: {
-                        type: "string",
-                        minLength: 64,
-                        maxLength: 64,
-                        pattern: "^[0-9a-fA-F]+$",
-                        "x-maxUtf8Bytes": 64
-                      },
-                      category: {
-                        type: "string",
-                        enum: [
-                          "profile",
-                          "interest",
-                          "work",
-                          "learning"
-                        ]
-                      },
-                      version: {
-                        type: "integer",
-                        minimum: 1
-                      }
-                    },
-                    required: [
-                      "factId",
-                      "category",
-                      "version"
-                    ],
-                    additionalProperties: false
-                  },
-                  maxItems: 20
-                },
-                phraseOrigin: {
-                  type: "string",
-                  enum: [
-                    "user_expression",
-                    "quoted_expression",
-                    "host_generated"
-                  ],
-                  description: "user_expression: expression actually used by the learner; quoted_expression: expression quoted in an actual learner message; host_generated: host-created wording based on learner intent. The first two must occur in a referenced role=user message.",
-                  maxLength: 40
-                }
-              },
-              required: [
-                "phrase",
-                "reason",
-                "evidenceIds",
-                "phraseOrigin"
-              ],
-              additionalProperties: false
-            },
-            minItems: 1,
-            maxItems: 20
-          }
-        },
-        required: [
-          "operationKey",
-          "sourceHost",
-          "sourceSessionId",
-          "messages",
-          "candidates"
-        ],
-        additionalProperties: false
-      },
-      outputSchema: {
-        type: "object",
-        properties: {
-          data: {
-            type: "object",
-            properties: {
-              outcomes: {
-                type: [
-                  "array",
-                  "null"
-                ],
-                items: {
-                  type: "object",
-                  properties: {
-                    phraseHash: {
-                      type: "string"
-                    },
-                    version: {
-                      type: "integer"
-                    },
-                    status: {
-                      type: "string"
-                    }
-                  },
-                  required: [
-                    "phraseHash",
-                    "version",
-                    "status"
-                  ],
-                  additionalProperties: false
-                }
-              }
-            },
-            required: [
-              "outcomes"
-            ],
-            additionalProperties: false
-          }
-        },
-        required: [
-          "data"
-        ],
-        additionalProperties: false
-      }
-    },
-    {
       name: "encbird_list_freechat_scenarios",
-      description: "Read current FreeChat scenario recommendations.",
+      description: "Read EncBird-generated FreeChat scenario material.",
       inputSchema: {
         type: "object",
         properties: {},
@@ -25596,69 +24778,6 @@ var tools_default = {
             items: {
               type: "object",
               properties: {
-                external: {
-                  type: "object",
-                  properties: {
-                    sourceHost: {
-                      type: "string"
-                    },
-                    sourceSessionId: {
-                      type: "string"
-                    },
-                    evidenceIds: {
-                      type: [
-                        "array",
-                        "null"
-                      ],
-                      items: {
-                        type: "string"
-                      }
-                    },
-                    observedAt: {
-                      type: "string"
-                    },
-                    generatedBy: {
-                      type: "string"
-                    },
-                    factRefs: {
-                      type: [
-                        "array",
-                        "null"
-                      ],
-                      items: {
-                        type: "object",
-                        properties: {
-                          factId: {
-                            type: "string"
-                          },
-                          category: {
-                            type: "string"
-                          },
-                          version: {
-                            type: "integer"
-                          }
-                        },
-                        required: [
-                          "factId",
-                          "category",
-                          "version"
-                        ],
-                        additionalProperties: false
-                      }
-                    },
-                    invalidated: {
-                      type: "boolean"
-                    }
-                  },
-                  required: [
-                    "sourceHost",
-                    "sourceSessionId",
-                    "evidenceIds",
-                    "observedAt",
-                    "generatedBy"
-                  ],
-                  additionalProperties: false
-                },
                 version: {
                   type: "integer"
                 },
@@ -25675,7 +24794,11 @@ var tools_default = {
                   type: "string"
                 },
                 source: {
-                  type: "string"
+                  type: "string",
+                  enum: [
+                    "DIARYCHAT",
+                    "FREECHAT"
+                  ]
                 },
                 sourceId: {
                   type: "string"
@@ -25694,206 +24817,6 @@ var tools_default = {
               ],
               additionalProperties: false
             }
-          }
-        },
-        required: [
-          "data"
-        ],
-        additionalProperties: false
-      }
-    },
-    {
-      name: "encbird_save_freechat_scenarios",
-      description: "Save evidenced host-generated scenario candidates without starting a chat.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          operationKey: {
-            type: "string",
-            maxLength: 160,
-            minLength: 1,
-            "x-maxUtf8Bytes": 160
-          },
-          sourceHost: {
-            type: "string",
-            maxLength: 120,
-            minLength: 1,
-            "x-maxUtf8Bytes": 120
-          },
-          sourceSessionId: {
-            type: "string",
-            maxLength: 160,
-            minLength: 1,
-            "x-maxUtf8Bytes": 160
-          },
-          messages: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                id: {
-                  type: "string",
-                  maxLength: 160,
-                  minLength: 1,
-                  "x-maxUtf8Bytes": 160
-                },
-                role: {
-                  type: "string",
-                  enum: [
-                    "user",
-                    "assistant",
-                    "generated"
-                  ]
-                },
-                content: {
-                  type: "string",
-                  maxLength: 4e3,
-                  minLength: 1,
-                  "x-maxUtf8Bytes": 4e3
-                },
-                observedAt: {
-                  type: "string",
-                  minLength: 1,
-                  pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
-                  description: "Actual observation timestamp; at most five minutes in the future."
-                }
-              },
-              required: [
-                "id",
-                "role",
-                "content",
-                "observedAt"
-              ],
-              additionalProperties: false
-            },
-            minItems: 1,
-            maxItems: 80
-          },
-          candidates: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                title: {
-                  type: "string",
-                  maxLength: 200,
-                  minLength: 1,
-                  "x-maxUtf8Bytes": 200
-                },
-                prompt: {
-                  type: "string",
-                  maxLength: 2e3,
-                  minLength: 1,
-                  "x-maxUtf8Bytes": 2e3
-                },
-                targetSkill: {
-                  type: "string",
-                  maxLength: 200,
-                  minLength: 1,
-                  "x-maxUtf8Bytes": 200
-                },
-                evidenceIds: {
-                  type: "array",
-                  items: {
-                    type: "string"
-                  },
-                  minItems: 1,
-                  maxItems: 80
-                },
-                factRefs: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      factId: {
-                        type: "string",
-                        minLength: 64,
-                        maxLength: 64,
-                        pattern: "^[0-9a-fA-F]+$",
-                        "x-maxUtf8Bytes": 64
-                      },
-                      category: {
-                        type: "string",
-                        enum: [
-                          "profile",
-                          "interest",
-                          "work",
-                          "learning"
-                        ]
-                      },
-                      version: {
-                        type: "integer",
-                        minimum: 1
-                      }
-                    },
-                    required: [
-                      "factId",
-                      "category",
-                      "version"
-                    ],
-                    additionalProperties: false
-                  },
-                  maxItems: 20
-                }
-              },
-              required: [
-                "title",
-                "prompt",
-                "targetSkill",
-                "evidenceIds"
-              ],
-              additionalProperties: false
-            },
-            minItems: 1,
-            maxItems: 20
-          }
-        },
-        required: [
-          "operationKey",
-          "sourceHost",
-          "sourceSessionId",
-          "messages",
-          "candidates"
-        ],
-        additionalProperties: false
-      },
-      outputSchema: {
-        type: "object",
-        properties: {
-          data: {
-            type: "object",
-            properties: {
-              outcomes: {
-                type: [
-                  "array",
-                  "null"
-                ],
-                items: {
-                  type: "object",
-                  properties: {
-                    id: {
-                      type: "string"
-                    },
-                    version: {
-                      type: "integer"
-                    },
-                    status: {
-                      type: "string"
-                    }
-                  },
-                  required: [
-                    "id",
-                    "version",
-                    "status"
-                  ],
-                  additionalProperties: false
-                }
-              }
-            },
-            required: [
-              "outcomes"
-            ],
-            additionalProperties: false
           }
         },
         required: [
@@ -25964,6 +24887,220 @@ var tools_default = {
         ],
         additionalProperties: false
       }
+    },
+    {
+      name: "encbird_submit_memory_candidates",
+      description: "Submit untrusted profile, activity or learning candidates for EncBird internal evaluation; acceptance is not memory confirmation.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          operationKey: {
+            type: "string",
+            minLength: 1,
+            maxLength: 160,
+            "x-maxUtf8Bytes": 160
+          },
+          sourceHost: {
+            type: "string",
+            minLength: 1,
+            maxLength: 120,
+            "x-maxUtf8Bytes": 120
+          },
+          sourceSessionId: {
+            type: "string",
+            minLength: 1,
+            maxLength: 160,
+            "x-maxUtf8Bytes": 160
+          },
+          candidates: {
+            type: "array",
+            minItems: 1,
+            maxItems: 20,
+            items: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  minLength: 1,
+                  maxLength: 160,
+                  "x-maxUtf8Bytes": 160
+                },
+                kind: {
+                  type: "string",
+                  enum: [
+                    "profile",
+                    "activity",
+                    "learning"
+                  ]
+                },
+                content: {
+                  type: "string",
+                  minLength: 1,
+                  maxLength: 2e3,
+                  "x-maxUtf8Bytes": 2e3
+                },
+                observedAt: {
+                  type: "string",
+                  description: "Actual observation time in RFC3339; no more than five minutes in the future."
+                },
+                evidenceIds: {
+                  type: "array",
+                  maxItems: 80,
+                  items: {
+                    type: "string",
+                    minLength: 1,
+                    maxLength: 160,
+                    "x-maxUtf8Bytes": 160
+                  }
+                }
+              },
+              required: [
+                "id",
+                "kind",
+                "content",
+                "observedAt"
+              ],
+              additionalProperties: false
+            }
+          },
+          messages: {
+            type: "array",
+            maxItems: 80,
+            items: {
+              type: "object",
+              properties: {
+                id: {
+                  type: "string",
+                  minLength: 1,
+                  maxLength: 160,
+                  "x-maxUtf8Bytes": 160
+                },
+                role: {
+                  type: "string",
+                  enum: [
+                    "user",
+                    "assistant",
+                    "generated"
+                  ]
+                },
+                content: {
+                  type: "string",
+                  minLength: 1,
+                  maxLength: 4e3,
+                  "x-maxUtf8Bytes": 4e3
+                },
+                observedAt: {
+                  type: "string",
+                  description: "Actual observation time in RFC3339; no more than five minutes in the future."
+                }
+              },
+              required: [
+                "id",
+                "role",
+                "content",
+                "observedAt"
+              ],
+              additionalProperties: false
+            }
+          }
+        },
+        required: [
+          "operationKey",
+          "sourceHost",
+          "sourceSessionId",
+          "candidates"
+        ],
+        additionalProperties: false
+      },
+      outputSchema: {
+        type: "object",
+        properties: {
+          data: {
+            type: "object",
+            properties: {
+              candidateId: {
+                type: "string",
+                minLength: 64,
+                maxLength: 64,
+                pattern: "^[0-9a-fA-F]+$"
+              },
+              status: {
+                type: "string",
+                enum: [
+                  "pending",
+                  "processing",
+                  "completed",
+                  "cancelled",
+                  "failed"
+                ]
+              }
+            },
+            required: [
+              "candidateId",
+              "status"
+            ],
+            additionalProperties: false
+          }
+        },
+        required: [
+          "data"
+        ],
+        additionalProperties: false
+      }
+    },
+    {
+      name: "encbird_get_memory_candidate_status",
+      description: "Read only the processing status of your submitted candidate batch, without stored memory facts.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          candidateId: {
+            type: "string",
+            minLength: 64,
+            maxLength: 64,
+            pattern: "^[0-9a-fA-F]+$"
+          }
+        },
+        required: [
+          "candidateId"
+        ],
+        additionalProperties: false
+      },
+      outputSchema: {
+        type: "object",
+        properties: {
+          data: {
+            type: "object",
+            properties: {
+              candidateId: {
+                type: "string",
+                minLength: 64,
+                maxLength: 64,
+                pattern: "^[0-9a-fA-F]+$"
+              },
+              status: {
+                type: "string",
+                enum: [
+                  "pending",
+                  "processing",
+                  "completed",
+                  "cancelled",
+                  "failed"
+                ]
+              }
+            },
+            required: [
+              "candidateId",
+              "status"
+            ],
+            additionalProperties: false
+          }
+        },
+        required: [
+          "data"
+        ],
+        additionalProperties: false
+      }
     }
   ],
   routes: {
@@ -26024,38 +25161,10 @@ var tools_default = {
       query: [],
       pathArguments: {}
     },
-    encbird_save_memory: {
-      method: "POST",
-      path: "/memory",
-      operationId: "memory_update",
-      query: [],
-      pathArguments: {}
-    },
-    encbird_correct_memory: {
-      method: "POST",
-      path: "/memory/corrections",
-      operationId: "memory_correct",
-      query: [],
-      pathArguments: {}
-    },
-    encbird_delete_memory: {
-      method: "POST",
-      path: "/memory/deletions",
-      operationId: "memory_delete",
-      query: [],
-      pathArguments: {}
-    },
     encbird_list_suggested_expressions: {
       method: "GET",
       path: "/suggested-expressions",
       operationId: "suggested_expressions",
-      query: [],
-      pathArguments: {}
-    },
-    encbird_save_suggested_expressions: {
-      method: "POST",
-      path: "/suggested-expressions",
-      operationId: "suggest_expressions",
       query: [],
       pathArguments: {}
     },
@@ -26066,40 +25175,75 @@ var tools_default = {
       query: [],
       pathArguments: {}
     },
-    encbird_save_freechat_scenarios: {
-      method: "POST",
-      path: "/freechat-scenarios",
-      operationId: "suggest_scenarios",
-      query: [],
-      pathArguments: {}
-    },
     encbird_accept_suggested_expression: {
       method: "POST",
       path: "/suggested-expressions/accept",
       operationId: "accept_suggested_expression",
       query: [],
       pathArguments: {}
+    },
+    encbird_submit_memory_candidates: {
+      method: "POST",
+      path: "/memory-candidates",
+      operationId: "submit_memory_candidates",
+      query: [],
+      pathArguments: {}
+    },
+    encbird_get_memory_candidate_status: {
+      method: "GET",
+      path: "/memory-candidates/{id}",
+      operationId: "memory_candidate_status",
+      query: [],
+      pathArguments: {
+        id: "candidateId"
+      }
     }
   }
 };
+
+// src/candidates.ts
+function validObservationTime(value, now) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(value);
+  if (!match) return false;
+  const [year, month, day, hour, minute, second, zoneHour, zoneMinute] = match.slice(1).map((part) => Number(part ?? 0));
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1] ?? 0;
+  return month >= 1 && month <= 12 && day >= 1 && day <= days && hour < 24 && minute < 60 && second < 60 && zoneHour < 24 && zoneMinute < 60 && Date.parse(value) <= now + 3e5;
+}
+function validateCandidateEvidence(input, now = Date.now()) {
+  if (Buffer.byteLength(JSON.stringify(input), "utf8") > 64 * 1024) {
+    throw new SafeError("INVALID_ARGUMENTS", "Candidate input exceeds 64 KiB of UTF-8 JSON. Reduce it to relevant consented evidence before submitting; preserve actual source identities and observations. This call sent no request.");
+  }
+  const candidates = input.candidates;
+  const messages2 = input.messages ?? [];
+  for (const observations of [candidates, messages2]) {
+    const ids = /* @__PURE__ */ new Set();
+    for (const item of observations) {
+      if (ids.has(item.id)) throw new SafeError("INVALID_ARGUMENTS", "Candidate or message IDs are duplicated within the input. Restore unique original IDs before submitting; do not invent new IDs to bypass an earlier conflict. This call sent no request.");
+      if (!validObservationTime(item.observedAt, now)) throw new SafeError("INVALID_ARGUMENTS", "An observation time is invalid or more than five minutes in the future. Use the actual RFC3339 observation time before submitting; never invent a time or change an earlier observation to bypass a conflict. This call sent no request.");
+      ids.add(item.id);
+    }
+  }
+  const userIds = new Set(messages2.filter((message2) => message2.role === "user").map((message2) => message2.id));
+  for (const candidate of candidates) {
+    if (candidate.evidenceIds?.some((id) => !userIds.has(id))) throw new SafeError("INVALID_ARGUMENTS", "An evidenceId does not identify a supplied actual user message. Supply the original consented user evidence or omit unsupported references before submitting; never relabel assistant or generated text as user evidence. This call sent no request.");
+  }
+}
 
 // src/tools.ts
 var routes = {
   encbird_get_context: { method: "GET", path: "/context" },
   encbird_list_expressions: { method: "GET", path: "/expressions", query: ["limit", "beforeAt"] },
   encbird_search_expressions: { method: "GET", path: "/expressions/search", query: ["query", "limit"] },
-  encbird_get_expression: { method: "GET", path: "/expressions/{id}", id: true },
+  encbird_get_expression: { method: "GET", path: "/expressions/{id}", pathArguments: { id: "expressionId" } },
   encbird_add_expression: { method: "POST", path: "/expressions" },
   encbird_list_review_quizzes: { method: "GET", path: "/review-quizzes" },
   encbird_submit_quiz_result: { method: "POST", path: "/quiz-results" },
-  encbird_save_memory: { method: "POST", path: "/memory" },
-  encbird_correct_memory: { method: "POST", path: "/memory/corrections" },
-  encbird_delete_memory: { method: "POST", path: "/memory/deletions" },
   encbird_list_suggested_expressions: { method: "GET", path: "/suggested-expressions" },
-  encbird_save_suggested_expressions: { method: "POST", path: "/suggested-expressions" },
   encbird_accept_suggested_expression: { method: "POST", path: "/suggested-expressions/accept" },
   encbird_list_freechat_scenarios: { method: "GET", path: "/freechat-scenarios" },
-  encbird_save_freechat_scenarios: { method: "POST", path: "/freechat-scenarios" }
+  encbird_submit_memory_candidates: { method: "POST", path: "/memory-candidates" },
+  encbird_get_memory_candidate_status: { method: "GET", path: "/memory-candidates/{id}", pathArguments: { id: "candidateId" } }
 };
 var localTools = [
   { name: "encbird_connect", description: "Start EncBird browser sign-in or check its progress. Never supply tokens. Call again after completing browser sign-in.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
@@ -26111,20 +25255,24 @@ var LearningTools = class {
   outputValidators;
   routes;
   constructor(contract = tools_default) {
-    if (contract.apiVersion !== "1" || !["integration-stub", "backend-aligned"].includes(contract.status)) throw new SafeError("INVALID_CONTRACT", "The bundled learning contract is not supported.");
+    if (contract.apiVersion !== "1" || !["integration-stub", "backend-aligned"].includes(contract.status)) throw new SafeError("INVALID_CONTRACT", "The bundled learning contract version or status is unsupported. Ask the local operator to reinstall a compatible plugin before retrying; do not edit the bundled contract.");
     const names = /* @__PURE__ */ new Set();
     for (const tool of contract.tools) {
       if (!Object.hasOwn(routes, tool.name) || names.has(tool.name) || tool.inputSchema.type !== "object" || tool.inputSchema.additionalProperties !== false || Object.hasOwn(tool.inputSchema.properties ?? {}, "userId")) {
-        throw new SafeError("INVALID_CONTRACT", "The bundled contract contains an unsupported tool or authority field.");
+        throw new SafeError("INVALID_CONTRACT", "The bundled contract contains a duplicate or unsupported tool or authority field. Ask the local operator to reinstall a verified plugin before retrying; do not add authority fields or bypass validation.");
       }
       names.add(tool.name);
     }
     this.tools = contract.status === "backend-aligned" ? contract.tools : [];
     this.routes = contract.routes ?? {};
+    if (contract.status === "backend-aligned" && (contract.contractVersion !== "3.0.0" || names.size !== Object.keys(routes).length || Object.keys(this.routes).length !== names.size)) {
+      throw new SafeError("INVALID_CONTRACT", "The bundled learning contract is incomplete or incompatible. Ask the local operator to reinstall a compatible plugin before retrying; do not patch the contract manually.");
+    }
     for (const tool of this.tools) {
       const route = this.routes[tool.name];
-      if (!route || route.method !== routes[tool.name].method || route.path !== routes[tool.name].path || !tool.outputSchema) {
-        throw new SafeError("INVALID_CONTRACT", "The bundled route or output contract is not supported.");
+      const expected = routes[tool.name];
+      if (!route || route.method !== expected.method || route.path !== expected.path || !tool.outputSchema || JSON.stringify(route.query) !== JSON.stringify(expected.query ?? []) || JSON.stringify(route.pathArguments) !== JSON.stringify(expected.pathArguments ?? {})) {
+        throw new SafeError("INVALID_CONTRACT", "The bundled route or output definition does not match supported tools. Ask the local operator to reinstall a verified compatible plugin before retrying; do not use a direct API route to bypass validation.");
       }
     }
     const ajv = new import__.Ajv2020({ strict: true, allErrors: false });
@@ -26140,19 +25288,22 @@ var LearningTools = class {
   }
   validateInput(name, input) {
     const validator = this.validators.get(name);
-    if (!validator) throw new SafeError("TOOL_UNAVAILABLE", "This tool is not available in the installed contract. Discover the available tools first.");
-    if (!validator(input) || Object.hasOwn(input, "userId")) throw new SafeError("INVALID_ARGUMENTS", "Tool arguments do not match the bundled contract.");
+    if (!validator) throw new SafeError("TOOL_UNAVAILABLE", "This tool is not available in the installed contract. Discover available tools and choose one that supports the learner request; do not invent tool names or substitute direct API calls.");
+    if (!validator(input) || Object.hasOwn(input, "userId")) throw new SafeError("INVALID_ARGUMENTS", "Tool arguments do not match the installed input schema. Discover the tool schema and correct required fields, types, and limits before calling it again; never supply userId, tokens, or invented approval. This call sent no request.");
   }
   async call(auth2, name, input = {}) {
     this.validateInput(name, input);
     if (name === "encbird_connect") return auth2.connect();
     if (name === "encbird_disconnect") return auth2.disconnect();
     filterExternalInput(name, input, auth2.secrets);
-    if (name === "encbird_get_expression" && [".", ".."].includes(String(input.expressionId))) {
-      throw new SafeError("INVALID_ARGUMENTS", "An expression identifier is required.");
+    if (name === "encbird_submit_memory_candidates") validateCandidateEvidence(input);
+    const route = this.routes[name];
+    for (const argument of Object.values(route.pathArguments)) {
+      const id = input[argument];
+      if (typeof id !== "string" || !id || [".", ".."].includes(id)) throw new SafeError("INVALID_ARGUMENTS", "The resource identifier is empty or a path traversal segment. Use the identifier returned by the matching EncBird list or submission tool before calling again. This call sent no request.");
     }
     const result = await auth2.callLearningTool(name, input);
-    if (!this.outputValidators.get(name)(result)) throw new SafeError("INVALID_RESPONSE", "EncBird returned data that does not match the installed contract.");
+    if (!this.outputValidators.get(name)(result)) throw new SafeError("INVALID_RESPONSE", `EncBird returned data that does not match the installed output schema. Ask the operator to align plugin and service versions before retrying. ${uncertainOutcome}`);
     return result;
   }
 };
@@ -26190,7 +25341,7 @@ var PluginRuntime = class {
 function createServer2() {
   const server2 = new Server({ name: "encbird", version: "0.1.0" }, {
     capabilities: { tools: {} },
-    instructions: "Use EncBird tools for account data; adapt teaching and explanations to the learner. Sign in through the browser, never request tokens. Reuse relevant results and avoid polling or parallel request loops. Honor retryAfterSeconds. Retry a write only with its original input/key when the error permits it. Report saves only when confirmed. Preserve user approval and learner ratings."
+    instructions: "Reads return EncBird-generated materials and basic profile only. Memory candidates are intake for EncBird evaluation, not direct memory writes or confirmation; completed processing may produce zero facts. Do not expose memory, fact references, or directly edit profiles from candidates. Use EncBird tools for account data; adapt teaching and explanations to the learner. Sign in through the browser, never request tokens. Reuse relevant results and avoid polling or parallel request loops. Honor retryAfterSeconds. Retry a write only with its original input/key when the error permits it. Report saves only when confirmed. Preserve user approval and learner ratings."
   });
   const runtime = new PluginRuntime(() => server2.getClientVersion()?.name ?? "unknown-mcp-client");
   server2.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: runtime.tools.list() }));

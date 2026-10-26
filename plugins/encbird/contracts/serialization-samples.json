@@ -71,83 +71,13 @@
       }
     }
   },
-  "encbird_correct_memory": {
-    "input": {
-      "operationKey": "fixture-operation",
-      "sourceHost": "codex",
-      "sourceSessionId": "fixture-session",
-      "messages": [
-        {
-          "id": "message-1",
-          "role": "user",
-          "content": "I enjoy hiking.",
-          "observedAt": "2026-10-01T12:00:00Z"
-        }
-      ],
-      "target": {
-        "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "category": "interest",
-        "version": 1
-      },
-      "fact": {
-        "category": "interest",
-        "key": "interest.hiking",
-        "kind": "habit",
-        "content": "I enjoy hiking.",
-        "occurredOn": "2026-10-01",
-        "evidence": [
-          {
-            "messageId": "message-1",
-            "quote": "I enjoy hiking."
-          }
-        ]
-      }
-    },
-    "output": {
-      "data": {
-        "operationId": "fixture-value",
-        "status": "stored",
-        "facts": [
-          {
-            "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "category": "interest",
-            "version": 1,
-            "status": "stored"
-          }
-        ]
-      }
-    }
-  },
-  "encbird_delete_memory": {
-    "input": {
-      "operationKey": "fixture-operation",
-      "target": {
-        "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "category": "interest",
-        "version": 1
-      }
-    },
-    "output": {
-      "data": {
-        "operationId": "fixture-value",
-        "status": "stored",
-        "facts": [
-          {
-            "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "category": "interest",
-            "version": 1,
-            "status": "stored"
-          }
-        ]
-      }
-    }
-  },
   "encbird_get_context": {
     "input": {},
     "output": {
       "data": {
-        "cefrLevel": "B1",
-        "dataSource": "encbird"
+        "dataSource": "encbird",
+        "name": "Learner",
+        "cefrLevel": "B1"
       }
     }
   },
@@ -194,6 +124,17 @@
       }
     }
   },
+  "encbird_get_memory_candidate_status": {
+    "input": {
+      "candidateId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "output": {
+      "data": {
+        "candidateId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "pending"
+      }
+    }
+  },
   "encbird_list_expressions": {
     "input": {
       "limit": 1,
@@ -223,28 +164,12 @@
     "output": {
       "data": [
         {
-          "external": {
-            "sourceHost": "codex",
-            "sourceSessionId": "fixture-session",
-            "evidenceIds": [
-              "fixture-value"
-            ],
-            "observedAt": "2026-10-01T12:00:00Z",
-            "generatedBy": "host",
-            "factRefs": [
-              {
-                "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "category": "interest",
-                "version": 1
-              }
-            ]
-          },
           "version": 1,
           "id": "example-1",
           "title": "Discuss hiking",
           "prompt": "Discuss a recent hike.",
           "targetSkill": "describing experiences",
-          "source": "external_host",
+          "source": "DIARYCHAT",
           "sourceId": "fixture-value",
           "createdAt": "2026-10-01T12:00:00Z"
         }
@@ -289,166 +214,18 @@
     "output": {
       "data": [
         {
-          "phraseOrigin": "host_generated",
-          "external": {
-            "sourceHost": "codex",
-            "sourceSessionId": "fixture-session",
-            "evidenceIds": [
-              "fixture-value"
-            ],
-            "observedAt": "2026-10-01T12:00:00Z",
-            "generatedBy": "host",
-            "factRefs": [
-              {
-                "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "category": "interest",
-                "version": 1
-              }
-            ]
-          },
           "reason": "Practice a useful expression.",
           "version": 1,
           "phraseHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           "phrase": "look up",
           "meaningKr": "찾아보다",
-          "source": "external_host",
+          "source": "chatbot",
           "sourceSessionId": "fixture-session",
           "status": "stored",
           "createdAt": "2026-10-01T12:00:00Z",
           "updatedAt": "2026-10-01T12:00:00Z"
         }
       ]
-    }
-  },
-  "encbird_save_freechat_scenarios": {
-    "input": {
-      "operationKey": "fixture-operation",
-      "sourceHost": "codex",
-      "sourceSessionId": "fixture-session",
-      "messages": [
-        {
-          "id": "message-1",
-          "role": "user",
-          "content": "I enjoy hiking.",
-          "observedAt": "2026-10-01T12:00:00Z"
-        }
-      ],
-      "candidates": [
-        {
-          "title": "Discuss hiking",
-          "prompt": "Discuss a recent hike.",
-          "targetSkill": "describing experiences",
-          "evidenceIds": [
-            "message-1"
-          ],
-          "factRefs": [
-            {
-              "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-              "category": "interest",
-              "version": 1
-            }
-          ]
-        }
-      ]
-    },
-    "output": {
-      "data": {
-        "outcomes": [
-          {
-            "id": "example-1",
-            "version": 1,
-            "status": "stored"
-          }
-        ]
-      }
-    }
-  },
-  "encbird_save_memory": {
-    "input": {
-      "operationKey": "fixture-operation",
-      "sourceHost": "codex",
-      "sourceSessionId": "fixture-session",
-      "messages": [
-        {
-          "id": "message-1",
-          "role": "user",
-          "content": "I enjoy hiking.",
-          "observedAt": "2026-10-01T12:00:00Z"
-        }
-      ],
-      "facts": [
-        {
-          "category": "interest",
-          "key": "interest.hiking",
-          "kind": "habit",
-          "content": "I enjoy hiking.",
-          "occurredOn": "2026-10-01",
-          "evidence": [
-            {
-              "messageId": "message-1",
-              "quote": "I enjoy hiking."
-            }
-          ]
-        }
-      ]
-    },
-    "output": {
-      "data": {
-        "operationId": "fixture-value",
-        "status": "stored",
-        "facts": [
-          {
-            "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "category": "interest",
-            "version": 1,
-            "status": "stored"
-          }
-        ]
-      }
-    }
-  },
-  "encbird_save_suggested_expressions": {
-    "input": {
-      "operationKey": "fixture-operation",
-      "sourceHost": "codex",
-      "sourceSessionId": "fixture-session",
-      "messages": [
-        {
-          "id": "message-1",
-          "role": "user",
-          "content": "I enjoy hiking.",
-          "observedAt": "2026-10-01T12:00:00Z"
-        }
-      ],
-      "candidates": [
-        {
-          "phraseOrigin": "host_generated",
-          "phrase": "look up",
-          "meaningKr": "찾아보다",
-          "reason": "Practice a useful expression.",
-          "evidenceIds": [
-            "message-1"
-          ],
-          "factRefs": [
-            {
-              "factId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-              "category": "interest",
-              "version": 1
-            }
-          ]
-        }
-      ]
-    },
-    "output": {
-      "data": {
-        "outcomes": [
-          {
-            "phraseHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            "version": 1,
-            "status": "stored"
-          }
-        ]
-      }
     }
   },
   "encbird_search_expressions": {
@@ -472,6 +249,38 @@
         "truncated": false,
         "moreMayExist": false,
         "coverage": "fixture-value"
+      }
+    }
+  },
+  "encbird_submit_memory_candidates": {
+    "input": {
+      "operationKey": "fixture-operation",
+      "sourceHost": "codex",
+      "sourceSessionId": "fixture-session",
+      "candidates": [
+        {
+          "id": "candidate-1",
+          "kind": "profile",
+          "content": "I enjoy hiking.",
+          "observedAt": "2026-10-01T12:00:00Z",
+          "evidenceIds": [
+            "message-1"
+          ]
+        }
+      ],
+      "messages": [
+        {
+          "id": "message-1",
+          "role": "user",
+          "content": "I enjoy hiking.",
+          "observedAt": "2026-10-01T12:00:00Z"
+        }
+      ]
+    },
+    "output": {
+      "data": {
+        "candidateId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "pending"
       }
     }
   },

@@ -1,6 +1,6 @@
 # Remote MCP transport contract
 
-The installed plugin remains a local Node process for Codex or Claude Code. Its 15 learning tools call `https://api.encbird.com/mcp` through Streamable HTTP, the MCP transport that carries protocol messages in HTTP requests. The script runner uses the same implementation. Tool names, arguments, consent requirements and learning-result schemas remain unchanged.
+The installed plugin remains a local Node process for Codex or Claude Code. Its 12 learning tools call `https://api.encbird.com/mcp` through Streamable HTTP, the MCP transport that carries protocol messages in HTTP requests. The script runner uses the same implementation. Tool names, arguments, consent requirements and learning-result schemas remain unchanged.
 
 ## Endpoints and authentication
 
@@ -46,3 +46,5 @@ HTTP 429 and 503 preserve `Retry-After` as `error.retryAfterSeconds`, accepting 
 There is no automatic write retry, alternate URL, or learning REST fallback. After an ambiguous write, an explicit retry must keep the complete original arguments and operation key. HTTP 401 expires the local access token so a subsequent explicit attempt can refresh it. `CONNECTION_INACTIVE` disables access and runs existing cleanup; fresh same-account sign-in is needed to create a new connection. `encbird_disconnect` confirms completion only after the connection and provider grant are revoked.
 
 The local bridge owns browser authentication. This contract does not claim automatic OAuth onboarding for arbitrary clients that connect directly to the remote URL, and does not add a password-login tool or accept secrets from a conversation.
+
+`NOT_ENOUGH_CREDIT` keeps its insufficient-credit and top-up guidance across HTTP and MCP tool errors, including legacy HTTP 503. HTTP authentication takes precedence. Unknown domain codes remain undiagnosed, and server diagnostic messages are never forwarded.

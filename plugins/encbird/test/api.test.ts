@@ -26,16 +26,16 @@ test('bootstrap rejects unsafe OAuth endpoints, wrong redirect, missing openid',
   }
 });
 
-test('all fifteen data tools are discoverable; unsupported tools and userId authority are rejected', async t => {
+test('all twelve data tools are discoverable; unsupported tools and userId authority are rejected', async t => {
   const m = await mock(); t.after(() => m.close());
-  const stub = new LearningTools(); assert.equal(stub.list().length, 17);
+  const stub = new LearningTools(); assert.equal(stub.list().length, 14);
   await assert.rejects(stub.call(m.auth, 'not_allowed'), { code: 'TOOL_UNAVAILABLE' });
   await assert.rejects(stub.call(m.auth, 'encbird_connect', { userId: 'someone-else' }), { code: 'INVALID_ARGUMENTS' });
   const contract = structuredClone(snapshot) as unknown as Contract; contract.status = 'backend-aligned';
   contract.tools[0]!.name = 'run_arbitrary_command'; assert.throws(() => new LearningTools(contract), { code: 'INVALID_CONTRACT' });
 });
 
-test('aligned contract relays all fifteen named tools and exact arguments through remote MCP', async t => {
+test('aligned contract relays all twelve named tools and exact arguments through remote MCP', async t => {
   const m = await mock(); t.after(() => m.close()); await m.login();
   const tools = new LearningTools({ ...snapshot, status: 'backend-aligned' } as unknown as Contract);
   for (const tool of snapshot.tools) {
@@ -75,7 +75,7 @@ test('401 requires explicit same-operation retry, refresh happens before that re
 test('403 domain errors preserve safe protocol codes without exposing server text', async t => {
   const m = await mock(); t.after(() => m.close()); await m.login();
   m.flags.apiStatus = 403; m.flags.apiBody = { error: { code: 'LEARNING_SOURCE_UNAVAILABLE', message: 'private server stack' } };
-  await assert.rejects(m.auth.request('POST', '/memory', {}), error => {
+  await assert.rejects(m.auth.request('POST', '/suggested-expressions', {}), error => {
     const result = safeError(error); assert.equal(result.error.code, 'LEARNING_SOURCE_UNAVAILABLE');
     assert.ok(!result.error.message.includes('stack')); return true;
   });

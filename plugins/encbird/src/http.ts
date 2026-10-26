@@ -1,4 +1,4 @@
-import { SafeError } from './errors.js';
+import { SafeError, uncertainOutcome } from './errors.js';
 import { retryAfterSeconds } from './traffic.js';
 
 export function serviceUrl(value: unknown): URL {
@@ -13,13 +13,17 @@ export function serviceUrl(value: unknown): URL {
   } catch { throw new SafeError('INVALID_CONFIG', 'Service URLs must be unambiguous HTTP or HTTPS URLs without credentials, queries, or fragments.'); }
 }
 
-export async function requestJson(url: string, init: RequestInit = {}, timeoutMs = 15_000): Promise<{ status: number; body: unknown; retryAfterSeconds?: number }> {
+export async function requestJson(url: string, init: RequestInit = {}, timeoutMs = 15_000, errorBodyOptional = false): Promise<{ status: number; body: unknown; retryAfterSeconds?: number }> {
   let response!: Response;
   try {
     response = await fetch(url, { ...init, redirect: 'error', signal: AbortSignal.timeout(timeoutMs) });
     const pause = response.status === 429 || response.status === 503;
     const result = (body: unknown) => ({ status: response.status, body,
       ...(pause ? { retryAfterSeconds: retryAfterSeconds(response.headers.get('retry-after')) } : {}) });
+    if (errorBodyOptional && response.status === 401) {
+      await response.body?.cancel().catch(() => {});
+      return result(null);
+    }
     const reader = response.body?.getReader();
     const chunks: Uint8Array[] = [];
     let size = 0;
@@ -30,8 +34,8 @@ export async function requestJson(url: string, init: RequestInit = {}, timeoutMs
         size += value.length;
         if (size > 1_048_576) {
           await reader.cancel();
-          if (pause) return result({});
-          throw new SafeError('INVALID_RESPONSE', 'EncBird returned an oversized response.');
+          if (pause || (errorBodyOptional && !response.ok)) return result({});
+          throw new SafeError('INVALID_RESPONSE', `The service response exceeded the size limit. Ask the operator to repair the response before retrying. ${uncertainOutcome}`);
         }
         chunks.push(value);
       }
@@ -40,8 +44,8 @@ export async function requestJson(url: string, init: RequestInit = {}, timeoutMs
     if (!raw && response.status >= 200 && response.status < 300) return { status: response.status, body: null };
     try { return result(JSON.parse(raw)); }
     catch {
-      if (pause) return result({});
-      throw new SafeError('INVALID_RESPONSE', 'The service returned an invalid JSON response.');
+      if (pause || (errorBodyOptional && !response.ok)) return result({});
+      throw new SafeError('INVALID_RESPONSE', `The service returned invalid JSON. Ask the operator to restore a valid response before retrying. ${uncertainOutcome}`);
     }
   } catch (error) {
     // An overloaded server may stop sending its body after sending Retry-After.
@@ -50,11 +54,11 @@ export async function requestJson(url: string, init: RequestInit = {}, timeoutMs
       return { status: response.status, body: {}, retryAfterSeconds: retryAfterSeconds(response.headers.get('retry-after')) };
     }
     if (error instanceof SafeError) throw error;
-    throw new SafeError('NETWORK_ERROR', 'The service could not be reached securely. No fallback was attempted.');
+    throw new SafeError('NETWORK_ERROR', `The service request could not be completed securely; delivery or response receipt is uncertain. Check connectivity and ask the operator if it persists. Retry only after access is restored; no fallback was attempted. ${uncertainOutcome}`);
   }
 }
 
 export function object(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new SafeError('INVALID_RESPONSE', 'The service response has an invalid shape.');
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new SafeError('INVALID_RESPONSE', `The service returned an unexpected response shape. Ask the operator to check plugin/service compatibility before retrying. ${uncertainOutcome}`);
   return value as Record<string, unknown>;
 }

@@ -18,7 +18,7 @@ test('bundled MCP process initializes, lists allowlisted tools and returns struc
   transport.stderr?.on('data', chunk => { stderr += chunk; });
   const client = new Client({ name: 'smoke-host', version: '1.0.0' });
   t.after(() => client.close()); await client.connect(transport);
-  const { tools } = await client.listTools(); assert.equal(tools.length, 17); assert.ok(tools.filter(t => !t.name.endsWith('connect')).every(t => t.outputSchema));
+  const { tools } = await client.listTools(); assert.equal(tools.length, 14); assert.ok(tools.filter(t => !t.name.endsWith('connect')).every(t => t.outputSchema));
   const result = await client.callTool({ name: 'encbird_connect', arguments: {} });
   assert.equal((result.structuredContent as any).error.code, 'INVALID_CONFIG');
   assert.deepEqual(JSON.parse((result.content as any)[0].text), result.structuredContent); assert.equal(result.isError, true);
@@ -38,7 +38,7 @@ test('bundled MCP returns a successful disconnect result without bootstrapping o
   assert.deepEqual(JSON.parse((result.content as any)[0].text), result.structuredContent); assert.notEqual(result.isError, true);
 });
 
-test('bundled stdio MCP relays all fifteen tools through remote MCP using contract serialization samples', async t => {
+test('bundled stdio MCP relays all twelve tools through remote MCP using contract serialization samples', async t => {
   const m = await mock(); t.after(() => m.close()); await m.login();
   const scoped = new CredentialStore(m.base, 'smoke-data-host', m.secrets, m.directory);
   const credentials = await m.read(); await scoped.withLock(tx => tx.save(credentials));
@@ -51,7 +51,36 @@ test('bundled stdio MCP relays all fifteen tools through remote MCP using contra
     assert.notEqual(result.isError, true, name); assert.deepEqual(result.structuredContent, sample.output);
     assert.deepEqual(JSON.parse((result.content as any)[0].text), sample.output);
   }
-  assert.equal(m.rpcCalls().length, 15);
+  assert.equal(m.rpcCalls().length, 12);
   assert.ok(m.requests.filter(r => r.path === '/mcp').every(r => r.method === 'POST'));
+  await client.close(); assert.equal(stderr, '');
+});
+
+test('bundled stdio delivers actionable credit failures identically in text and structured results without extra HTTP', async t => {
+  const m = await mock(); t.after(() => m.close()); await m.login();
+  const scoped = new CredentialStore(m.base, 'error-host', m.secrets, m.directory);
+  await scoped.withLock(async tx => tx.save(await m.read()));
+  const transport = new StdioClientTransport({ command: process.execPath, args: [resolve('dist/index.js')],
+    env: { PATH: process.env.PATH ?? '', ENCBIRD_CREDENTIALS_DIR: m.directory, ENCBIRD_API_BASE_URL: m.base }, stderr: 'pipe' });
+  let stderr = ''; transport.stderr?.on('data', data => { stderr += data; });
+  const client = new Client({ name: 'error-host', version: '1.0.0' }); t.after(() => client.close()); await client.connect(transport);
+  const args = { phrase: 'take a break', idempotencyKey: 'approved-key', approval: { method: 'credits', creditAmount: 1 } };
+  for (const status of [402, 403, 503, 401]) {
+    await scoped.withLock(async tx => { const value = (await tx.load())!; delete value.traffic; await tx.save(value); });
+    m.flags.apiStatus = status;
+    m.flags.apiBody = { error: { code: 'NOT_ENOUGH_CREDIT', message: `Copy tokens ${m.issued.join(' ')}; provider detail; retry with a new key` } };
+    const before = m.requests.length; const counts = { ...m.counts };
+    const result = await client.callTool({ name: 'encbird_add_expression', arguments: args });
+    assert.equal(result.isError, true); assert.deepEqual(JSON.parse((result.content as any)[0].text), result.structuredContent);
+    const error = (result.structuredContent as any).error;
+    assert.deepEqual(Object.keys(error).sort(), status === 503 ? ['code', 'message', 'retryAfterSeconds'] : ['code', 'message']);
+    assert.equal(error.code, status === 401 ? 'AUTH_REQUIRED' : 'NOT_ENOUGH_CREDIT');
+    if (status === 401) { assert.match(error.message, /authentication.*refresh first/); assert.doesNotMatch(error.message, /Insufficient credits/); }
+    else { assert.match(error.message, /Insufficient credits.*top up credits in EncBird/); assert.match(error.message, /unchanged balance.*original operation key/); }
+    for (const token of m.issued) assert.ok(!JSON.stringify(result).includes(token));
+    assert.doesNotMatch(JSON.stringify(result), /provider detail|Copy tokens/);
+    assert.equal(m.requests.length, before + 3); assert.deepEqual(m.counts, counts);
+    assert.deepEqual((m.rpcCalls().at(-1)!.body as any).params.arguments, args);
+  }
   await client.close(); assert.equal(stderr, '');
 });

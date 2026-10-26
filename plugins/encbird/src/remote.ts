@@ -2,8 +2,9 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { CallToolResultSchema, McpError, type CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { validateBase } from './config.js';
-import { SafeError } from './errors.js';
+import { SafeError, uncertainOutcome } from './errors.js';
 import { object, serviceUrl } from './http.js';
+import { apiError } from './api-errors.js';
 import { retryAfterSeconds } from './traffic.js';
 
 export function remoteMcpUrl(base: string): string {
@@ -19,16 +20,11 @@ function domainCode(value: unknown): string | undefined {
 }
 
 function remoteError(value: unknown, fallback = 'MCP_TOOL_FAILED', status?: number, pause?: number): SafeError {
-  const code = domainCode(value) ?? fallback;
-  if (status === 429 || status === 503) {
-    return new SafeError(domainCode(value) ?? (status === 429 ? 'RATE_LIMITED' : 'SERVICE_UNAVAILABLE'),
-      'The service requested a pause. Wait before retrying; keep the same input and operation key for writes.', pause);
-  }
-  if (status === 401 || ['AUTH_REQUIRED', 'AUTHENTICATION_REQUIRED', 'UNAUTHORIZED'].includes(code)) {
-    return new SafeError('AUTH_REQUIRED', 'EncBird rejected this connection. Reconnect or retry the same operation after refresh.');
-  }
-  if (code === 'CONNECTION_INACTIVE') return new SafeError(code, 'This connection is inactive. Run connect for same-account browser recovery.');
-  return new SafeError(code, 'EncBird could not complete the request. If retrying a write, keep the same operation key and payload.');
+  const code = domainCode(value);
+  const overloaded = status === 429 || status === 503;
+  if (!code && overloaded) return apiError(status, 'API_ERROR', pause);
+  const authentication = status === 401 || (!overloaded && ['AUTH_REQUIRED', 'AUTHENTICATION_REQUIRED', 'UNAUTHORIZED'].includes(code ?? ''));
+  return apiError(authentication ? 401 : status ?? 0, code ?? fallback, pause);
 }
 
 function toolEnvelope(result: CallToolResult): Record<string, unknown> {
@@ -39,7 +35,7 @@ function toolEnvelope(result: CallToolResult): Record<string, unknown> {
   if (result.isError) throw remoteError(envelope);
   const value = object(envelope);
   if (Object.hasOwn(value, 'error')) throw remoteError(value);
-  if (!Object.hasOwn(value, 'data')) throw new SafeError('INVALID_RESPONSE', 'The MCP result did not contain an EncBird data envelope.');
+  if (!Object.hasOwn(value, 'data')) throw new SafeError('INVALID_RESPONSE', `The MCP result did not contain an EncBird data envelope. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
   return value;
 }
 
@@ -52,7 +48,7 @@ async function boundedBody(response: Response): Promise<string> {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.length;
-      if (size > 1_048_576) { await reader.cancel(); throw new SafeError('INVALID_RESPONSE', 'The remote MCP response exceeded its size limit.'); }
+      if (size > 1_048_576) { await reader.cancel(); throw new SafeError('INVALID_RESPONSE', `The remote MCP response exceeded its size limit. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`); }
       chunks.push(value);
     }
   }
@@ -82,6 +78,10 @@ export async function callRemoteTool(base: string, currentToken: () => Promise<s
     try {
       const signal = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(init.signal ? [init.signal] : [])]);
       const response = await fetch(endpoint, { ...init, headers, signal, redirect: 'error', credentials: 'omit' });
+      if (response.status === 401) {
+        await response.body?.cancel().catch(() => {});
+        throw remoteError(undefined, 'MCP_HTTP_ERROR', 401);
+      }
       if (response.headers.has('mcp-session-id')) {
         await response.body?.cancel();
         throw new SafeError('MCP_PROTOCOL_ERROR', 'The remote MCP server unexpectedly issued a session.');
@@ -89,7 +89,7 @@ export async function callRemoteTool(base: string, currentToken: () => Promise<s
       const mediaType = response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
       if (response.ok && !notification && mediaType !== 'application/json') {
         await response.body?.cancel();
-        throw new SafeError('INVALID_RESPONSE', 'The remote MCP server must return stateless JSON responses.');
+        throw new SafeError('INVALID_RESPONSE', `The remote MCP server must return stateless JSON responses. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
       }
       const overloaded = response.status === 429 || response.status === 503;
       const pause = overloaded ? retryAfterSeconds(response.headers.get('retry-after')) : undefined;
@@ -109,12 +109,12 @@ export async function callRemoteTool(base: string, currentToken: () => Promise<s
       const message = object(body);
       if (message.jsonrpc !== '2.0' || message.id !== request.id || Object.hasOwn(message, 'method') ||
           (Object.hasOwn(message, 'result') === Object.hasOwn(message, 'error'))) {
-        throw new SafeError('INVALID_RESPONSE', 'The remote MCP response did not match its request.');
+        throw new SafeError('INVALID_RESPONSE', `The remote MCP response did not match its request. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
       }
       return new Response(raw, { status: response.status, headers: { 'content-type': 'application/json' } });
     } catch (error) {
       if (error instanceof SafeError) throw error;
-      throw new SafeError('NETWORK_ERROR', 'The remote MCP request failed. No fallback or automatic retry was attempted.');
+      throw new SafeError('NETWORK_ERROR', `The remote MCP request failed. No fallback or automatic retry was attempted. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
     }
   };
   const guardedFetch: typeof fetch = (input, init) => {
@@ -136,7 +136,7 @@ export async function callRemoteTool(base: string, currentToken: () => Promise<s
       if (domainCode(error.data)) throw remoteError(error.data);
       throw remoteError(undefined, error.code === -32601 ? 'TOOL_UNAVAILABLE' : 'MCP_PROTOCOL_ERROR');
     }
-    throw new SafeError('MCP_PROTOCOL_ERROR', 'The remote MCP negotiation or result was invalid. No automatic retry was attempted.');
+    throw new SafeError('MCP_PROTOCOL_ERROR', `The remote MCP negotiation or result was invalid. No automatic retry was attempted. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
   } finally {
     await client.close().catch(() => {});
     // Keep the credential lock until any refresh already started by the transport has settled.

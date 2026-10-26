@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createLocalJWKSet, jwtVerify, type JSONWebKeySet } from 'jose';
 import { type OAuthConfig, REDIRECT_URI } from './config.js';
-import { SafeError, Secrets } from './errors.js';
+import { authCleanup, SafeError, Secrets } from './errors.js';
 import { object, requestJson, serviceUrl } from './http.js';
 
 export function proof() {
@@ -21,9 +21,9 @@ export function authorizationUrl(config: OAuthConfig, values: ReturnType<typeof 
 }
 export async function openBrowser(url: string) {
   const command = process.platform === 'darwin' ? 'open' : process.platform === 'linux' ? 'xdg-open' : undefined;
-  if (!command) throw new SafeError('BROWSER_UNAVAILABLE', 'Automatic browser sign-in requires macOS or Linux.');
+  if (!command) throw new SafeError('BROWSER_UNAVAILABLE', 'Automatic browser sign-in requires macOS or Linux. Use a supported local desktop and encbird_connect when the learner wants to sign in; never copy tokens or callback URLs into the assistant.');
   try { await promisify(execFile)(command, [url], { timeout: 5_000, maxBuffer: 4096 }); }
-  catch { throw new SafeError('BROWSER_UNAVAILABLE', 'The sign-in browser could not be opened. Retry from a desktop session.'); }
+  catch { throw new SafeError('BROWSER_UNAVAILABLE', 'The sign-in browser could not be opened. Ask the local operator to restore the default browser launcher in this desktop session, then use encbird_connect if the learner still wants to sign in. Never copy tokens or callback URLs.'); }
 }
 export async function callback(state: string, signal: AbortSignal, timeoutMs = 180_000) {
   let resolveCode!: (code: string) => void;
@@ -34,8 +34,8 @@ export async function callback(state: string, signal: AbortSignal, timeoutMs = 1
   const servers: Server[] = [];
   const fail = (error: SafeError) => rejectCode(error);
   const close = () => { for (const server of servers) { server.close(); server.closeAllConnections(); } };
-  const abort = () => fail(new SafeError('AUTH_CANCELLED', 'Sign-in was cancelled.'));
-  const timer = setTimeout(() => fail(new SafeError('AUTH_TIMEOUT', 'Sign-in timed out. Run connect again.')), timeoutMs);
+  const abort = () => fail(new SafeError('AUTH_CANCELLED', 'Sign-in was cancelled. Do not restart without learner intent. Run encbird_disconnect if cleanup is still pending; preserve credential records until cleanup completes.'));
+  const timer = setTimeout(() => fail(new SafeError('AUTH_TIMEOUT', 'Browser sign-in timed out. If the learner still wants to connect, run encbird_connect for a fresh browser flow and complete it before the timeout; do not reuse the old callback.')), timeoutMs);
   signal.addEventListener('abort', abort, { once: true });
   try {
     for (const host of ['127.0.0.1', '::1']) {
@@ -57,11 +57,11 @@ export async function callback(state: string, signal: AbortSignal, timeoutMs = 1
         const received = url.searchParams.get('state') ?? '';
         if (url.searchParams.getAll('state').length !== 1 || Buffer.byteLength(received) !== Buffer.byteLength(state) ||
             !timingSafeEqual(Buffer.from(received), Buffer.from(state))) {
-          res.writeHead(400).end('Invalid sign-in state.'); fail(new SafeError('OAUTH_STATE_MISMATCH', 'Sign-in state did not match. Retry sign-in.')); return;
+          res.writeHead(400).end('Invalid sign-in state.'); fail(new SafeError('OAUTH_STATE_MISMATCH', 'The browser callback did not match this sign-in attempt. If the learner still wants to connect, start a fresh flow with encbird_connect and use only its browser window; never reuse or copy callback data.')); return;
         }
         const value = url.searchParams.get('code');
         if (url.searchParams.has('error') || url.searchParams.getAll('code').length !== 1 || !value || value.length > 4096) {
-          res.writeHead(400).end('Sign-in was not completed.'); fail(new SafeError('AUTH_DENIED', 'Sign-in was denied or incomplete.')); return;
+          res.writeHead(400).end('Sign-in was not completed.'); fail(new SafeError('AUTH_DENIED', 'Browser sign-in was denied or incomplete. Wait for the learner to choose to sign in, then start a fresh flow with encbird_connect; do not retry automatically.')); return;
         }
         res.end('Sign-in callback received. Return to your assistant to check the connection.');
         resolveCode(value);
@@ -71,7 +71,7 @@ export async function callback(state: string, signal: AbortSignal, timeoutMs = 1
         await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(18765, host, resolve); });
       } catch (error) {
         if (host === '::1' && ['EAFNOSUPPORT', 'EADDRNOTAVAIL'].includes((error as NodeJS.ErrnoException).code ?? '')) continue;
-        throw new SafeError('CALLBACK_PORT_BUSY', 'Port 18765 is unavailable. Finish the other sign-in and retry; no process was stopped.');
+        throw new SafeError('CALLBACK_PORT_BUSY', 'The local sign-in callback could not listen on port 18765. Let any other sign-in finish; if the port remains unavailable, ask the local operator to inspect it. Retry encbird_connect only once the port is available; do not stop unrelated processes.');
       }
     }
   } catch (error) { clearTimeout(timer); signal.removeEventListener('abort', abort); close(); throw error; }
@@ -89,8 +89,10 @@ export async function tokenRequest(config: OAuthConfig, form: Record<string, str
   const data = object(body);
   secrets.add(data.access_token, data.refresh_token, data.id_token);
   if (status !== 200) {
-    if (data.error === 'invalid_grant') throw new SafeError('OAUTH_INVALID_GRANT', 'This grant can no longer refresh. Run connect for same-account browser recovery.');
-    throw new SafeError('OAUTH_TOKEN_FAILED', 'Token exchange is temporarily unavailable. Retry the same operation.');
+    if (data.error === 'invalid_grant') throw new SafeError('OAUTH_INVALID_GRANT', form.grant_type === 'refresh_token'
+      ? 'The stored refresh authorization is no longer usable. Run encbird_connect for same-account browser recovery and complete any requested cleanup before learning resumes.'
+      : 'The browser sign-in authorization is no longer usable. If the learner still wants to connect, run encbird_connect for a fresh browser flow with the same account if recovering a previous connection. Do not reuse the old callback or repeat a learning write.');
+    throw new SafeError('OAUTH_TOKEN_FAILED', 'Sign-in credentials could not be obtained or refreshed. Do not repeat a learning write. After service access is restored, run encbird_disconnect for retained cleanup; use encbird_connect for same-account recovery when reauthenticationRequired is reported. If it persists, ask the operator to check sign-in configuration.');
   }
   await checkpoint?.({ accessToken: typeof data.access_token === 'string' ? data.access_token : undefined,
     refreshToken: typeof data.refresh_token === 'string' ? data.refresh_token : undefined,
@@ -101,7 +103,7 @@ export async function tokenRequest(config: OAuthConfig, form: Record<string, str
       typeof data.expires_in !== 'number' || !Number.isFinite(data.expires_in) || data.expires_in <= 0 || data.expires_in > 86400 ||
       typeof data.token_type !== 'string' || data.token_type.toLowerCase() !== 'bearer' ||
       [data.refresh_token, data.id_token].some(v => v !== undefined && (typeof v !== 'string' || !v))) {
-    throw new SafeError('INVALID_TOKEN_RESPONSE', 'The provider returned invalid credentials.');
+    throw new SafeError('INVALID_TOKEN_RESPONSE', `Sign-in returned incomplete or invalid credentials. ${authCleanup}`);
   }
   return { accessToken: data.access_token, refreshToken: data.refresh_token as string | undefined,
     idToken: data.id_token as string | undefined, expiresAt: Date.now() + data.expires_in * 1000 };
@@ -109,7 +111,7 @@ export async function tokenRequest(config: OAuthConfig, form: Record<string, str
 export async function discoveryKeys(config: OAuthConfig): Promise<URL> {
   try {
     const discovery = await requestJson(`${config.issuer.replace(/\/$/, '')}/.well-known/openid-configuration`);
-    if (discovery.status >= 500) throw new SafeError('OAUTH_VERIFICATION_UNAVAILABLE', 'Identity verification is temporarily unavailable. Retry connect.');
+    if (discovery.status >= 500) throw new SafeError('OAUTH_VERIFICATION_UNAVAILABLE', 'Account identity verification is temporarily unavailable. After service access is restored, run encbird_connect to start or resume verification; use encbird_disconnect to cancel and clean up any retained flow. Do not bypass verification or repeat learning writes.');
     const doc = object(discovery.body);
     if (discovery.status !== 200 || doc.issuer !== config.issuer || doc.authorization_endpoint !== config.authorizationEndpoint ||
         doc.token_endpoint !== config.tokenEndpoint ||
@@ -120,15 +122,15 @@ export async function discoveryKeys(config: OAuthConfig): Promise<URL> {
     return jwksUrl;
   } catch (error) {
     if (error instanceof SafeError && ['NETWORK_ERROR', 'OAUTH_VERIFICATION_UNAVAILABLE'].includes(error.code)) throw error;
-    throw new SafeError('INVALID_ID_TOKEN', 'OAuth discovery did not match the configured issuer and endpoints.');
+    throw new SafeError('INVALID_ID_TOKEN', 'Sign-in discovery did not match the configured issuer and endpoints. Ask the EncBird operator to repair configuration before retrying encbird_connect; preserve any cleanup records and do not substitute endpoints.');
   }
 }
 export async function verifyIdentity(config: OAuthConfig, idToken: string | undefined, nonce?: string) {
-  if (!idToken) throw new SafeError('INVALID_ID_TOKEN', 'The provider did not return an identity token.');
+  if (!idToken) throw new SafeError('INVALID_ID_TOKEN', `Sign-in did not return the identity proof required to verify the account. ${authCleanup}`);
   try {
     const jwksUrl = await discoveryKeys(config);
     const keys = await requestJson(jwksUrl.href);
-    if (keys.status >= 500) throw new SafeError('OAUTH_VERIFICATION_UNAVAILABLE', 'Identity verification is temporarily unavailable. Retry connect.');
+    if (keys.status >= 500) throw new SafeError('OAUTH_VERIFICATION_UNAVAILABLE', 'Account identity verification is temporarily unavailable. After service access is restored, run encbird_connect to start or resume verification; use encbird_disconnect to cancel and clean up any retained flow. Do not bypass verification or repeat learning writes.');
     if (keys.status !== 200) throw new Error();
     const { payload } = await jwtVerify(idToken, createLocalJWKSet(object(keys.body) as unknown as JSONWebKeySet), {
       issuer: config.issuer, audience: config.clientId, algorithms: ['RS256'], requiredClaims: ['sub', 'iat', 'exp'], clockTolerance: 5,
@@ -137,13 +139,14 @@ export async function verifyIdentity(config: OAuthConfig, idToken: string | unde
         (payload.azp !== undefined && payload.azp !== config.clientId)) throw new Error();
     return payload.sub;
   } catch (error) {
-    if (error instanceof SafeError && ['NETWORK_ERROR', 'OAUTH_VERIFICATION_UNAVAILABLE'].includes(error.code)) throw error;
-    throw new SafeError('INVALID_ID_TOKEN', 'Identity token signature, issuer, audience, or nonce validation failed.');
+    if (error instanceof SafeError && error.code === 'OAUTH_VERIFICATION_UNAVAILABLE') throw new SafeError(error.code, 'Account identity verification is temporarily unavailable. After service access is restored, run encbird_connect to resume the saved verification flow; use encbird_disconnect to cancel and clean up. Do not bypass verification or repeat learning writes.');
+    if (error instanceof SafeError && error.code === 'NETWORK_ERROR') throw error;
+    throw new SafeError('INVALID_ID_TOKEN', `Account identity proof failed signature, issuer, audience, or nonce validation. ${authCleanup}`);
   }
 }
 
 export async function revoke(config: OAuthConfig, refreshToken: string) {
   const { status } = await requestJson(config.revocationEndpoint, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: config.clientId, token: refreshToken, token_type_hint: 'refresh_token' }) });
-  if (status < 200 || status >= 300) throw new SafeError('REVOCATION_FAILED', 'Provider revocation is pending. Run disconnect again to retry.');
+  if (status < 200 || status >= 300) throw new SafeError('REVOCATION_FAILED', 'Sign-in authorization revocation was not confirmed. Run encbird_disconnect after service access is restored to retry pending cleanup; ask the operator if it persists. Preserve credential records and do not claim complete revocation.');
 }
