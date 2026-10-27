@@ -77,3 +77,44 @@ Normal installation requires no environment variables. For development or separa
 The script's default client name is `encbird-script`; it has a separate profile from host MCP clients and does not silently reuse their login. Per-host/client credential isolation remains the default. A user or operator may explicitly configure the same stable `ENCBIRD_AUTH_SCOPE` in both entry points to share a profile. Agents must not set it automatically, discover another profile, or copy or migrate credentials to avoid separate sign-in. Do not rotate scopes to evade request limits.
 
 URL validation is implemented in [config.ts](../plugins/encbird/src/config.ts); credential paths and profile separation are implemented in `store.ts`. There is no environment variable setting for supplying API keys or authentication tokens.
+
+### Desktop connection to a local service
+
+Once an operator has prepared a compatible local service, set its **full lifecycle API base**, not just the origin or `/mcp`. For example, on the desktop where the service is reachable:
+
+```sh
+export ENCBIRD_API_BASE_URL='http://localhost:18090/v1/mcp-learning'
+export ENCBIRD_CREDENTIALS_DIR="$HOME/.encbird-plugin-local"
+node /absolute/path/to/encbird-plugin/plugins/encbird/dist/index.js
+```
+
+Replace the executable path with the built public checkout's absolute path. The shell expands `$HOME` to an absolute path; this separate directory keeps local credentials apart from the default production directory. The example sends configuration requests to `http://localhost:18090/v1/mcp-learning/config` and learning requests to `http://localhost:18090/mcp`.
+
+`dist/index.js` is a stdio server: it waits for an MCP host to initialize it and call tools. Starting it directly in a terminal does not prove service access or sign-in. For interactive testing, configure the agent to launch that same `node` command with the same environment instead. The plugin does **not** automatically load a `.env` file.
+
+Exports reach only processes started from that shell. Start the agent from that shell after exporting them, and ensure it passes them to its MCP child process. An already-running desktop agent will not inherit new terminal exports. Hosts with per-server environment configuration can use the following shape; adapt it to the host's configuration format and replace **both** example paths with actual absolute paths:
+
+```json
+{
+  "mcpServers": {
+    "encbird-local": {
+      "command": "node",
+      "args": ["/Users/alex/git/encbird-plugin/plugins/encbird/dist/index.js"],
+      "env": {
+        "ENCBIRD_API_BASE_URL": "http://localhost:18090/v1/mcp-learning",
+        "ENCBIRD_CREDENTIALS_DIR": "/Users/alex/.encbird-plugin-local"
+      }
+    }
+  }
+}
+```
+
+JSON values do not imply shell expansion: do not paste `~` or `$HOME` as the credential path. Restart the affected MCP process after changing its configuration. See [Local service testing](development.md#local-service-testing) for prerequisites and what to verify.
+
+To return to production, remove these overrides from the host configuration, or unset them before launching a fresh agent from the shell:
+
+```sh
+unset ENCBIRD_API_BASE_URL ENCBIRD_CREDENTIALS_DIR
+```
+
+If a test-specific `ENCBIRD_AUTH_SCOPE` was also set, remove it there too. Leave local credential files in their separate directory; do not copy them into a production profile. Production uses the built-in default when `ENCBIRD_API_BASE_URL` is absent; explicitly setting it to the production HTTPS URL is rejected.

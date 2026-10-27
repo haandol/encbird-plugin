@@ -32,6 +32,20 @@ The `check` script in the [root package.json](../package.json) checks versions, 
 
 Type checking and build commands are defined in the [plugin package.json](../plugins/encbird/package.json). Tests live in [test/](../plugins/encbird/test/); distribution checks are implemented in [validate.mjs](../scripts/validate.mjs).
 
+## Local service testing
+
+`npm run check` builds the plugin and exercises mock services inside the project Docker environment. Its process tests pass `ENCBIRD_API_BASE_URL` and `ENCBIRD_CREDENTIALS_DIR` to the bundled stdio process and verify calls reach the mock `/mcp` endpoint. Passing these tests does not mean an application server is running on your desktop.
+
+For an actual local service, obtain a prepared lifecycle API base from its operator, such as `http://localhost:18090/v1/mcp-learning`. The port is an example, not a server started by this repository. Before launching the desktop plugin, confirm:
+
+- The service exposes compatible `/v1/mcp-learning/config`, connection lifecycle routes, and `/mcp` on that origin. A web page or generic health check is insufficient.
+- Its OAuth configuration and provider support the plugin's registered callback, `http://localhost:18765/oauth/callback`, and learning resource/scopes. Keep that callback port available on the desktop.
+- The signed-in identity has test data in the intended local environment. Configure a separate local credential directory as shown in [Runtime configuration](runtime.md#desktop-connection-to-a-local-service).
+
+Run the built `node .../dist/index.js` process through a desktop MCP host using those environment values. Keep the plugin and browser on the same desktop for the loopback callback; the Dev Container's `localhost` is a different network environment. Follow the runtime guide's exports or host environment configuration explicitly; creating a `.env` file alone has no effect.
+
+Verify MCP initialization and tool listing first, then call `encbird_connect`, finish browser sign-in, and call it again until `connected` is confirmed. Read test data with `encbird_get_context` or `encbird_list_expressions` and confirm the request reached the intended local service. Call `encbird_disconnect` and confirm `disconnected` when finished. Report mock checks and actual service/OAuth results separately; a synthetic sign-in provider cannot establish real account sign-in or refresh behavior.
+
 ## Contracts and distribution files
 
 [contracts/openapi.json](../plugins/encbird/contracts/openapi.json) defines HTTP request and response formats in OpenAPI 3.1. [contracts/tools.json](../plugins/encbird/contracts/tools.json) contains the corresponding tool names, input and output schemas, and routes. A schema defines the allowed structure of a payload. These schemas remain the input/output authority for remote MCP tool arguments and results. The [transport contract](remote-mcp.md) defines the `/mcp` envelope and lifecycle separation; remote calls do not use the learning REST route metadata to send requests. [serialization-samples.json](../plugins/encbird/contracts/serialization-samples.json) provides synthetic input and output examples for validation.
