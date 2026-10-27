@@ -13,20 +13,21 @@ export function remoteMcpUrl(base: string): string {
   return new URL('/mcp', validateBase(base)).href;
 }
 
-function domainCode(value: unknown): string | undefined {
+function domainError(value: unknown): { code: string; retryAfterSeconds?: unknown } | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return;
   const data = value as Record<string, unknown>;
   const code = data.code;
-  if (typeof code === 'string' && /^[A-Z][A-Z0-9_]{1,63}$/.test(code)) return code;
-  return domainCode(data.error);
+  if (typeof code === 'string' && /^[A-Z][A-Z0-9_]{1,63}$/.test(code)) return { code, retryAfterSeconds: data.retryAfterSeconds };
+  return domainError(data.error);
 }
 
 function remoteError(value: unknown, fallback = 'MCP_TOOL_FAILED', status?: number, pause?: number): SafeError {
-  const code = domainCode(value);
+  const detail = domainError(value);
+  const code = detail?.code;
   const overloaded = status === 429 || status === 503;
   if (!code && overloaded) return apiError(status, 'API_ERROR', pause);
   const authentication = status === 401 || (!overloaded && ['AUTH_REQUIRED', 'AUTHENTICATION_REQUIRED', 'UNAUTHORIZED'].includes(code ?? ''));
-  return apiError(authentication ? 401 : status ?? 0, code ?? fallback, pause);
+  return apiError(authentication ? 401 : status ?? 0, code ?? fallback, pause, detail?.retryAfterSeconds);
 }
 
 function toolEnvelope(result: CallToolResult): Record<string, unknown> {
@@ -123,7 +124,7 @@ export async function callRemoteTool(base: string, currentToken: () => Promise<s
   } catch (error) {
     if (error instanceof SafeError) throw error;
     if (error instanceof McpError) {
-      if (domainCode(error.data)) throw remoteError(error.data);
+      if (domainError(error.data)) throw remoteError(error.data);
       throw remoteError(undefined, error.code === -32601 ? 'TOOL_UNAVAILABLE' : 'MCP_PROTOCOL_ERROR');
     }
     throw new SafeError('MCP_PROTOCOL_ERROR', `The remote MCP negotiation or result was invalid. No automatic retry was attempted. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);

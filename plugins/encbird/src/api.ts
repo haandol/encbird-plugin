@@ -19,8 +19,15 @@ export async function apiRequest(base: string, token: string, method: string, pa
   }, 15_000, true);
   if (status < 200 || status >= 300) {
     let code = 'API_ERROR';
-    try { const candidate = object(object(response).error).code; if (typeof candidate === 'string' && /^[A-Z][A-Z0-9_]{1,63}$/.test(candidate)) code = candidate; } catch { /* Use a fixed safe error. */ }
-    throw apiError(status, code, retryAfterSeconds);
+    let structuredPause: unknown;
+    try {
+      const detail = object(object(response).error);
+      if (typeof detail.code === 'string' && /^[A-Z][A-Z0-9_]{1,63}$/.test(detail.code)) {
+        code = detail.code;
+        structuredPause = detail.retryAfterSeconds;
+      }
+    } catch { /* Use a fixed safe error. */ }
+    throw apiError(status, code, retryAfterSeconds, structuredPause);
   }
   if (status === 204) return null;
   const envelope = object(response);

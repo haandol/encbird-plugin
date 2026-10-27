@@ -42,7 +42,7 @@ export class LearningTools {
     }
     this.tools = contract.status === 'backend-aligned' ? contract.tools : [];
     this.routes = contract.routes ?? {};
-    if (contract.status === 'backend-aligned' && (contract.contractVersion !== '3.1.0' || names.size !== Object.keys(routes).length || Object.keys(this.routes).length !== names.size)) {
+    if (contract.status === 'backend-aligned' && (contract.contractVersion !== '3.2.0' || names.size !== Object.keys(routes).length || Object.keys(this.routes).length !== names.size)) {
       throw new SafeError('INVALID_CONTRACT', 'The bundled learning contract is incomplete or incompatible. Ask the local operator to reinstall a compatible plugin before retrying; do not patch the contract manually.');
     }
     for (const tool of this.tools) {

@@ -84,3 +84,27 @@ test('bundled stdio delivers actionable credit failures identically in text and 
   }
   await client.close(); assert.equal(stderr, '');
 });
+
+test('bundled stdio preserves structured throttle metadata across process restart without another request', async t => {
+  const m = await mock(); t.after(() => m.close()); await m.login();
+  const scoped = new CredentialStore(m.base, 'pause-host', m.secrets, m.directory);
+  await scoped.withLock(async tx => tx.save(await m.read()));
+  m.flags.apiBody = { error: { code: 'RATE_LIMITED', message: 'private diagnostic', retryAfterSeconds: 90 } };
+  let calls = 0;
+  for (const expected of ['RATE_LIMITED', 'REQUEST_THROTTLED']) {
+    const transport = new StdioClientTransport({ command: process.execPath, args: [resolve('dist/index.js')],
+      env: { PATH: process.env.PATH ?? '', ENCBIRD_CREDENTIALS_DIR: m.directory, ENCBIRD_API_BASE_URL: m.base }, stderr: 'pipe' });
+    let stderr = ''; transport.stderr?.on('data', data => { stderr += data; });
+    const client = new Client({ name: 'pause-host', version: '1.0.0' }); t.after(() => client.close());
+    await client.connect(transport);
+    const result = await client.callTool({ name: 'encbird_add_expression', arguments: { phrase: 'look up', idempotencyKey: 'original' } });
+    assert.equal(result.isError, true); assert.deepEqual(JSON.parse((result.content as any)[0].text), result.structuredContent);
+    const error = (result.structuredContent as any).error;
+    assert.equal(error.code, expected); assert.ok(error.retryAfterSeconds >= 85 && error.retryAfterSeconds <= 91);
+    assert.doesNotMatch(JSON.stringify(result), /private diagnostic/);
+    if (expected === 'RATE_LIMITED') calls = m.requests.length;
+    else assert.equal(m.requests.length, calls);
+    await client.close(); assert.equal(stderr, '');
+  }
+  assert.equal(m.rpcCalls().length, 1); assert.equal(m.counts.refresh, 0); assert.equal(m.counts.exchange, 1);
+});

@@ -3,7 +3,7 @@
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "info": {
     "title": "EncBird Agent Learning API",
-    "version": "3.1.0",
+    "version": "3.2.0",
     "description": "Public HTTP contract for EncBird-generated learning materials, basic profile, expression registration and review, and consented learning candidates. EncBird evaluates candidates before updating learning memory; direct memory access is unavailable."
   },
   "servers": [
@@ -74,6 +74,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -87,6 +93,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -202,6 +271,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -215,6 +290,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -462,6 +600,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -475,6 +619,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -669,6 +876,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -682,6 +895,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -910,6 +1186,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -923,6 +1205,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -1103,6 +1448,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -1116,6 +1467,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -1211,6 +1625,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -1224,6 +1644,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -1417,6 +1900,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -1430,6 +1919,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -1531,6 +2083,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -1544,6 +2102,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -1642,6 +2263,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -1655,6 +2282,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -1723,6 +2413,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -1736,6 +2432,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -1803,6 +2562,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -1816,6 +2581,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -1914,6 +2742,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -1959,6 +2793,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -2070,6 +2967,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -2083,6 +2986,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -2158,6 +3124,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -2171,6 +3143,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -2379,6 +3414,12 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "retryAfterSeconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 86400,
+                          "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
                         }
                       },
                       "required": [
@@ -2392,6 +3433,69 @@
                     "error"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request admission was limited. The service returns RATE_LIMITED and retryAfterSeconds; API Gateway may reject before the service with a generic message. Do not reconnect, change keys, or automatically retry writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "retryAfterSeconds": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 86400,
+                              "description": "Minimum delay before an explicit retry. Present for service admission limits; keep the original payload and operation key. It does not guarantee that capacity will be available."
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Optional retry delay in seconds. Gateway rejections may omit this header.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }

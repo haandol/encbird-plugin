@@ -28,7 +28,7 @@ assert.equal((await json('.agents/plugins/marketplace.json', root)).plugins[0].s
 assert.equal((await json('.claude-plugin/marketplace.json', root)).plugins[0].source, './plugins/encbird');
 const contract = await json('contracts/tools.json');
 assert.equal(contract.status, 'backend-aligned');
-assert.equal(contract.contractVersion, '3.1.0');
+assert.equal(contract.contractVersion, '3.2.0');
 const canonicalRaw = await readFile(new URL('contracts/openapi.json', plugin));
 const canonical = JSON.parse(canonicalRaw);
 assert.equal(canonical.openapi, '3.1.0');

@@ -51,10 +51,19 @@ function classifiedError(status: number, code: string): SafeError {
   return new SafeError(code, `EncBird rejected the request without a recognized error code. Check the discovered tool schema and ask the EncBird operator to investigate before retrying. ${uncertainOutcome}`);
 }
 
-export function apiError(status: number, code: string, retryAfterSeconds?: number): SafeError {
+function boundedPause(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 86_400) return value;
+}
+
+export function apiError(status: number, code: string, retryAfterSeconds?: number, structuredRetryAfterSeconds?: unknown): SafeError {
+  const structuredPause = code === 'RATE_LIMITED' ? boundedPause(structuredRetryAfterSeconds) : undefined;
   if (code === 'API_ERROR' && (status === 429 || status === 503)) code = status === 429 ? 'RATE_LIMITED' : 'SERVICE_UNAVAILABLE';
   const error = classifiedError(status, code);
+  if (status === 401) return error;
   // A pause may accompany a business rejection; preserve its specific recovery action.
-  if ((status === 429 || status === 503) && retryAfterSeconds !== undefined) error.retryAfterSeconds = retryAfterSeconds;
+  if (status === 429 || status === 503 || error.code === 'RATE_LIMITED') {
+    const headerPause = status === 429 || status === 503 ? boundedPause(retryAfterSeconds) : undefined;
+    error.retryAfterSeconds = Math.max(headerPause ?? 0, structuredPause ?? 0) || 30;
+  }
   return error;
 }

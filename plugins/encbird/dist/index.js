@@ -19912,10 +19912,18 @@ function classifiedError(status, code) {
   if (status >= 500) return new SafeError(code, `EncBird could not complete the request because of a service error. Wait for service recovery; ask the EncBird operator if it persists. ${uncertainOutcome}`);
   return new SafeError(code, `EncBird rejected the request without a recognized error code. Check the discovered tool schema and ask the EncBird operator to investigate before retrying. ${uncertainOutcome}`);
 }
-function apiError(status, code, retryAfterSeconds2) {
+function boundedPause(value) {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 86400) return value;
+}
+function apiError(status, code, retryAfterSeconds2, structuredRetryAfterSeconds) {
+  const structuredPause = code === "RATE_LIMITED" ? boundedPause(structuredRetryAfterSeconds) : void 0;
   if (code === "API_ERROR" && (status === 429 || status === 503)) code = status === 429 ? "RATE_LIMITED" : "SERVICE_UNAVAILABLE";
   const error2 = classifiedError(status, code);
-  if ((status === 429 || status === 503) && retryAfterSeconds2 !== void 0) error2.retryAfterSeconds = retryAfterSeconds2;
+  if (status === 401) return error2;
+  if (status === 429 || status === 503 || error2.code === "RATE_LIMITED") {
+    const headerPause = status === 429 || status === 503 ? boundedPause(retryAfterSeconds2) : void 0;
+    error2.retryAfterSeconds = Math.max(headerPause ?? 0, structuredPause ?? 0) || 30;
+  }
   return error2;
 }
 
@@ -19939,12 +19947,16 @@ async function apiRequest(base, token, method, path, body) {
   }, 15e3, true);
   if (status < 200 || status >= 300) {
     let code = "API_ERROR";
+    let structuredPause;
     try {
-      const candidate = object3(object3(response).error).code;
-      if (typeof candidate === "string" && /^[A-Z][A-Z0-9_]{1,63}$/.test(candidate)) code = candidate;
+      const detail = object3(object3(response).error);
+      if (typeof detail.code === "string" && /^[A-Z][A-Z0-9_]{1,63}$/.test(detail.code)) {
+        code = detail.code;
+        structuredPause = detail.retryAfterSeconds;
+      }
     } catch {
     }
-    throw apiError(status, code, retryAfterSeconds2);
+    throw apiError(status, code, retryAfterSeconds2, structuredPause);
   }
   if (status === 204) return null;
   const envelope = object3(response);
@@ -23184,19 +23196,20 @@ var pluginVersion = package_default.version;
 function remoteMcpUrl(base) {
   return new URL("/mcp", validateBase(base)).href;
 }
-function domainCode(value) {
+function domainError(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return;
   const data = value;
   const code = data.code;
-  if (typeof code === "string" && /^[A-Z][A-Z0-9_]{1,63}$/.test(code)) return code;
-  return domainCode(data.error);
+  if (typeof code === "string" && /^[A-Z][A-Z0-9_]{1,63}$/.test(code)) return { code, retryAfterSeconds: data.retryAfterSeconds };
+  return domainError(data.error);
 }
 function remoteError(value, fallback = "MCP_TOOL_FAILED", status, pause) {
-  const code = domainCode(value);
+  const detail = domainError(value);
+  const code = detail?.code;
   const overloaded = status === 429 || status === 503;
   if (!code && overloaded) return apiError(status, "API_ERROR", pause);
   const authentication = status === 401 || !overloaded && ["AUTH_REQUIRED", "AUTHENTICATION_REQUIRED", "UNAUTHORIZED"].includes(code ?? "");
-  return apiError(authentication ? 401 : status ?? 0, code ?? fallback, pause);
+  return apiError(authentication ? 401 : status ?? 0, code ?? fallback, pause, detail?.retryAfterSeconds);
 }
 function toolEnvelope(result) {
   let envelope = result.structuredContent;
@@ -23298,7 +23311,7 @@ async function callRemoteTool(base, currentToken, name, args, timeoutMs = 15e3) 
   } catch (error2) {
     if (error2 instanceof SafeError) throw error2;
     if (error2 instanceof McpError) {
-      if (domainCode(error2.data)) throw remoteError(error2.data);
+      if (domainError(error2.data)) throw remoteError(error2.data);
       throw remoteError(void 0, error2.code === -32601 ? "TOOL_UNAVAILABLE" : "MCP_PROTOCOL_ERROR");
     }
     throw new SafeError("MCP_PROTOCOL_ERROR", `The remote MCP negotiation or result was invalid. No automatic retry was attempted. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
@@ -23927,8 +23940,8 @@ var import__ = __toESM(require__(), 1);
 var tools_default = {
   apiVersion: "1",
   status: "backend-aligned",
-  contractVersion: "3.1.0",
-  openapiSha256: "64a846482750a1399f8804aa752c2bf7ce43cbb8f36cab6016dc5b7e7208e798",
+  contractVersion: "3.2.0",
+  openapiSha256: "5e819360a45765c08596207e728d48fcbc4749a6288638c5b0cbb482d212fba2",
   tools: [
     {
       name: "encbird_get_context",
@@ -25441,7 +25454,7 @@ var LearningTools = class {
     }
     this.tools = contract.status === "backend-aligned" ? contract.tools : [];
     this.routes = contract.routes ?? {};
-    if (contract.status === "backend-aligned" && (contract.contractVersion !== "3.1.0" || names.size !== Object.keys(routes).length || Object.keys(this.routes).length !== names.size)) {
+    if (contract.status === "backend-aligned" && (contract.contractVersion !== "3.2.0" || names.size !== Object.keys(routes).length || Object.keys(this.routes).length !== names.size)) {
       throw new SafeError("INVALID_CONTRACT", "The bundled learning contract is incomplete or incompatible. Ask the local operator to reinstall a compatible plugin before retrying; do not patch the contract manually.");
     }
     for (const tool of this.tools) {

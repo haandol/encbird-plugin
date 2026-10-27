@@ -59,6 +59,7 @@ test('server errors expose safe codes only; a failed write never automatically r
   let failure: unknown; try { await m.auth.request('POST', '/expressions', { phrase: 'hello', idempotencyKey: 'same' }); } catch (error) { failure = safeError(error); }
   assert.equal(m.requests.length - before, 1);
   assert.equal((failure as any).error.code, 'RATE_LIMITED'); assert.ok(!JSON.stringify(failure).includes('api.go'));
+  await m.clearTraffic();
   m.flags.apiStatus = 200; m.flags.apiBody = { unexpected: true };
   await assert.rejects(m.auth.request('GET', '/context'), { code: 'INVALID_RESPONSE' });
 });
