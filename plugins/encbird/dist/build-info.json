@@ -1,10 +1,10 @@
 {
   "node": ">=22.12.0",
   "contractsSha256": "c252ed38e7754dccf85fdd536c14b69b7a49339acf1c067280e76a8ccb5ab3d9",
-  "bundleSha256": "6875120185b77f6432bb378d4bf5b72f69cc5520afec27ce96bb240605f2c01c",
-  "cliSha256": "848d7fd416ad2a315b4fb4ffd77c23c9e0ff79c65ca7048621fe96d506c6d09c",
+  "bundleSha256": "bf23468b36395ff18222864758c8a0c6b19c7b15c5c88d8b3686298fadbccf86",
+  "cliSha256": "2778618573b79df92061a9d7b4cc8cbda847d6cc104f4a7cf3187c8f23364cae",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.31.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "ajv": "8.20.0",
     "jose": "6.2.12",
     "proper-lockfile": "4.1.2"
