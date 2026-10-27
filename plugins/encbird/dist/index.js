@@ -2241,8 +2241,8 @@ var require_resolve = __commonJS({
       }
       return count;
     }
-    function getFullPath(resolver, id = "", normalize) {
-      if (normalize !== false)
+    function getFullPath(resolver, id = "", normalize2) {
+      if (normalize2 !== false)
         id = normalizeId(id);
       const p = resolver.parse(id);
       return _getFullPath(resolver, p);
@@ -3837,7 +3837,7 @@ var require_fast_uri = __commonJS({
       }
       return decodedScheme;
     }
-    function normalize(uri, options) {
+    function normalize2(uri, options) {
       if (typeof uri === "string") {
         uri = /** @type {T} */
         normalizeString(uri, options);
@@ -4215,7 +4215,7 @@ var require_fast_uri = __commonJS({
     }
     var fastUri = {
       SCHEMES,
-      normalize,
+      normalize: normalize2,
       resolve: resolve2,
       resolveComponent,
       equal,
@@ -6899,7 +6899,7 @@ var require_formats = __commonJS({
     }
     exports.fullFormats = {
       // date: http://tools.ietf.org/html/rfc3339#section-5.6
-      date: fmtDef(date4, compareDate),
+      date: fmtDef(date5, compareDate),
       // date-time: http://tools.ietf.org/html/rfc3339#section-5.6
       time: fmtDef(getTime(true), compareTime),
       "date-time": fmtDef(getDateTime(true), compareDateTime),
@@ -6960,19 +6960,19 @@ var require_formats = __commonJS({
       email: /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i
     };
     exports.formatNames = Object.keys(exports.fullFormats);
-    function isLeapYear(year) {
-      return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    function isLeapYear(year2) {
+      return year2 % 4 === 0 && (year2 % 100 !== 0 || year2 % 400 === 0);
     }
     var DATE = /^(\d\d\d\d)-(\d\d)-(\d\d)$/;
     var DAYS = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    function date4(str) {
+    function date5(str) {
       const matches = DATE.exec(str);
       if (!matches)
         return false;
-      const year = +matches[1];
-      const month = +matches[2];
-      const day = +matches[3];
-      return month >= 1 && month <= 12 && day >= 1 && day <= (month === 2 && isLeapYear(year) ? 29 : DAYS[month]);
+      const year2 = +matches[1];
+      const month2 = +matches[2];
+      const day2 = +matches[3];
+      return month2 >= 1 && month2 <= 12 && day2 >= 1 && day2 <= (month2 === 2 && isLeapYear(year2) ? 29 : DAYS[month2]);
     }
     function compareDate(d1, d2) {
       if (!(d1 && d2))
@@ -7034,7 +7034,7 @@ var require_formats = __commonJS({
       const time3 = getTime(strictTimeZone);
       return function date_time(str) {
         const dateTime = str.split(DATE_TIME_SEPARATOR);
-        return dateTime.length === 2 && date4(dateTime[0]) && time3(dateTime[1]);
+        return dateTime.length === 2 && date5(dateTime[0]) && time3(dateTime[1]);
       };
     }
     function compareDateTime(dt1, dt2) {
@@ -20424,7 +20424,7 @@ async function verifyCompact(jws, shared, key) {
 }
 
 // ../../node_modules/jose/dist/webapi/lib/jwt_claims_set.js
-var epoch = (date4) => Math.floor(date4.getTime() / 1e3);
+var epoch = (date5) => Math.floor(date5.getTime() / 1e3);
 var multipliers = {
   s: 1,
   m: 60,
@@ -20791,8 +20791,132 @@ async function revoke(config2, refreshToken) {
   if (status < 200 || status >= 300) throw new SafeError("REVOCATION_FAILED", "Sign-in authorization revocation was not confirmed. Run encbird_disconnect after service access is restored to retry pending cleanup; ask the operator if it persists. Preserve credential records and do not claim complete revocation.");
 }
 
+// src/privacy-identifiers.ts
+var phoneCandidate = /\+?[0-9(][0-9(). -]*[0-9]/g;
+var phoneLabel = /(?:\b(?:(?:phone|telephone|tel|mobile|cell(?: phone)?)(?: number)?|contact number|call me)|전화(?: *번호)?|휴대(?:폰|전화)(?: *번호)?|핸드폰(?: *번호)?|연락처)[\t\n\f\r :=]*(?:(?:is|at|on)\b|은|는)?[\t\n\f\r :=]*$/i;
+var localPhone = /\(?[0-9]{2,4}\)?[ .-]+[0-9]{3,4}[ .-]+[0-9]{4}|\([0-9]{2,4}\)[ .-]*[0-9]{3,4}[ .-]+[0-9]{4}/g;
+var year = "[12][0-9]{3}";
+var month = "(?:0?[1-9]|1[0-2])";
+var day = "(?:0?[1-9]|[12][0-9]|3[01])";
+var monthName = String.raw`(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?`;
+var date4 = `(?:${year}[-/. ]${month}[-/. ]${day}|${day}[-/. ]${day}[-/. ](?:${year}|[0-9]{2})|(?:${year} *\uB144 *)?${month} *\uC6D4 *${day} *\uC77C|${monthName} +${day}(?:st|nd|rd|th)?(?:,? +${year})?|${day}(?:st|nd|rd|th)? +(?:of +)?${monthName}(?:,? +${year})?|[0-9]{8}|[0-9]{6}|${month}[-/]${day})`;
+var birthLabel = String.raw`(?:\b(?:date of birth|birth[ -]?date|d\.?o\.?b|birthday|born)\b\.?|생년월일|출생일|태어난 *날짜|생일)`;
+var birthBeforeDate = new RegExp(birthLabel + String.raw`[\t\n\f\r :=]*(?:(?:is|was|on|the|falls)\b[\t\n\f\r :=]*){0,3}(?:은|는|이|가)?[\t\n\f\r ]*` + date4 + "(?:$|[^0-9])", "i");
+var birthAfterDate = new RegExp("(?:^|[^0-9])" + date4 + ` *(?:(?:is|was) +(?:my |your |the )?${birthLabel}|(?:\uC5D0 *)?(?:\uD0DC\uC5B4\uB0AC|\uD0DC\uC5B4\uB0A8|\uCD9C\uC0DD)|(?:\uC774|\uAC00|\uC740|\uB294)? *(?:\uC81C |\uB0B4 )?(?:\uC0DD\uB144\uC6D4\uC77C|\uCD9C\uC0DD\uC77C|\uC0DD\uC77C)(?:$|[.!?]| *(?:\uC785\uB2C8\uB2E4|\uC774\uC5D0\uC694|\uC774\uB2E4|\uC774\uC57C)))`, "i");
+var decimalStarts = [
+  48,
+  1632,
+  1776,
+  1984,
+  2406,
+  2534,
+  2662,
+  2790,
+  2918,
+  3046,
+  3174,
+  3302,
+  3430,
+  3558,
+  3664,
+  3792,
+  3872,
+  4160,
+  4240,
+  6112,
+  6160,
+  6470,
+  6608,
+  6784,
+  6800,
+  6992,
+  7088,
+  7232,
+  7248,
+  42528,
+  43216,
+  43264,
+  43472,
+  43504,
+  43600,
+  44016,
+  65296,
+  66720,
+  68912,
+  68928,
+  69734,
+  69872,
+  69942,
+  70096,
+  70384,
+  70736,
+  70864,
+  71248,
+  71360,
+  71376,
+  71386,
+  71472,
+  71904,
+  72016,
+  72688,
+  72784,
+  73040,
+  73120,
+  73184,
+  73552,
+  90416,
+  92768,
+  92864,
+  93008,
+  93552,
+  118e3,
+  120782,
+  120792,
+  120802,
+  120812,
+  120822,
+  123200,
+  123632,
+  124144,
+  124401,
+  125264,
+  130032
+];
+function normalize(value) {
+  return Array.from(value, (character) => {
+    const point = character.codePointAt(0);
+    if (point >= 65281 && point <= 65374) return String.fromCodePoint(point - 65248);
+    const start = decimalStarts.find((start2) => point >= start2 && point < start2 + 10);
+    if (start !== void 0) return String(point - start);
+    if (new RegExp("\\p{Dash_Punctuation}", "u").test(character) || character === "\u2212") return "-";
+    if (new RegExp("\\p{White_Space}", "u").test(character) && character !== "\n" && character !== "\r") return " ";
+    return character;
+  }).join("");
+}
+function phoneBoundary(value, start, length) {
+  const word = /[a-zA-Z0-9_]/;
+  return (start === 0 || !word.test(value[start - 1])) && (start + length === value.length || !word.test(value[start + length]));
+}
+function containsPhone(value) {
+  for (const match of value.matchAll(localPhone)) {
+    if (phoneBoundary(value, match.index, match[0].length)) return true;
+  }
+  for (const match of value.matchAll(phoneCandidate)) {
+    const number4 = match[0];
+    const digits = number4.replace(/[^0-9]/g, "").length;
+    if (digits < 7) continue;
+    if (phoneLabel.test(value.slice(0, match.index))) return true;
+    if (digits <= 15 && phoneBoundary(value, match.index, number4.length) && number4.startsWith("+")) return true;
+  }
+  return false;
+}
+function containsIdentifyingText(value) {
+  const normalized = normalize(value);
+  return containsPhone(normalized) || birthBeforeDate.test(normalized) || birthAfterDate.test(normalized);
+}
+
 // src/privacy.ts
-var unsafe = /[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}|https?:\/\/|\b(?:AKIA|ASIA)[A-Z0-9]{16}\b|\bsk-[a-z0-9_-]{12,}|-----BEGIN|\b(?:bearer|password|passwd|api[_ -]?key|secret[_ -]?key|access[_ -]?token)\s*[:= ]\s*\S+|\b\d{3}[- .]\d{3,4}[- .]\d{4}\b|\b\d{6}-[1-4]\d{6}\b|\b(?:ssn|social security|passport number|credit card|medical diagnosis)\b|주민등록|여권번호|신용카드번호|비밀번호/i;
+var unsafe = /[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}|https?:\/\/|\b(?:AKIA|ASIA)[A-Z0-9]{16}\b|\bsk-[a-z0-9_-]{12,}|-----BEGIN|\b(?:bearer|password|passwd|api[_ -]?key|secret[_ -]?key|access[_ -]?token)\s*[:= ]\s*\S+|\b\d{6}-[1-4]\d{6}\b|\b(?:ssn|social security|passport number|credit card|medical diagnosis)\b|주민등록|여권번호|신용카드번호|비밀번호/i;
 var externalTools = /* @__PURE__ */ new Set(["encbird_submit_memory_candidates"]);
 function filterExternalInput(name, input, secrets) {
   const visit = (value) => {
@@ -20800,7 +20924,7 @@ function filterExternalInput(name, input, secrets) {
       if (secrets.contains(value) || /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(value)) {
         throw new SafeError("PRIVACY_FILTERED", "Input contains known authentication secrets or a token-shaped value. Remove credential content before submitting; never copy tokens into tool input or disguise them to bypass this filter. This call sent no request.");
       }
-      if (externalTools.has(name) && (unsafe.test(value) || /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value))) {
+      if (externalTools.has(name) && (unsafe.test(value) || containsIdentifyingText(value) || /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/.test(value))) {
         throw new SafeError("PRIVACY_FILTERED", "Learning evidence contains private identifiers, sensitive content, or disallowed control characters. Remove that content and retain only relevant consented evidence before submitting; never disguise it to bypass this filter. This call sent no request.");
       }
     } else if (Array.isArray(value)) value.forEach(visit);
@@ -23769,8 +23893,8 @@ var import__ = __toESM(require__(), 1);
 var tools_default = {
   apiVersion: "1",
   status: "backend-aligned",
-  contractVersion: "3.0.0",
-  openapiSha256: "51fd2e8f4c85fd14b5f6a2ecd6ffd3549c0adc2219141d3e0f346213a33ecca7",
+  contractVersion: "3.1.0",
+  openapiSha256: "64a846482750a1399f8804aa752c2bf7ce43cbb8f36cab6016dc5b7e7208e798",
   tools: [
     {
       name: "encbird_get_context",
@@ -24260,7 +24384,7 @@ var tools_default = {
     },
     {
       name: "encbird_get_expression",
-      description: "Read stored expression details.",
+      description: "Read stored expression details and optionally check whether usable personal quiz material currently exists.",
       inputSchema: {
         type: "object",
         properties: {
@@ -24268,6 +24392,10 @@ var tools_default = {
             type: "string",
             maxLength: 128,
             minLength: 1
+          },
+          includeQuizAvailability: {
+            type: "boolean",
+            description: "Request current usable personal quiz availability. Omit or use false to keep the existing detail-only response. This read never generates questions."
           }
         },
         required: [
@@ -24404,6 +24532,23 @@ var tools_default = {
                   "antonyms",
                   "usageFit",
                   "suggestedQuestions"
+                ],
+                additionalProperties: false
+              },
+              quizAvailability: {
+                type: "object",
+                description: "Present only when includeQuizAvailability is true. This is observed material availability, not generation progress, failure, or a promise about the next review selection.",
+                properties: {
+                  status: {
+                    type: "string",
+                    enum: [
+                      "ready",
+                      "not_ready"
+                    ]
+                  }
+                },
+                required: [
+                  "status"
                 ],
                 additionalProperties: false
               }
@@ -24577,7 +24722,8 @@ var tools_default = {
           rating: {
             type: "integer",
             minimum: 1,
-            maximum: 4
+            maximum: 4,
+            description: "Learner-selected recall rating: 1 = Again (\uB2E4\uC2DC), 2 = Hard (\uC5B4\uB824\uC6C0), 3 = Good (\uC88B\uC74C), 4 = Easy (\uC26C\uC6C0). Explain these choices and use the learner's explicit selection; never infer a rating."
           },
           completed: {
             type: "boolean",
@@ -25136,7 +25282,9 @@ var tools_default = {
       method: "GET",
       path: "/expressions/{id}",
       operationId: "get_expression",
-      query: [],
+      query: [
+        "includeQuizAvailability"
+      ],
       pathArguments: {
         id: "expressionId"
       }
@@ -25199,10 +25347,10 @@ var tools_default = {
 function validObservationTime(value, now) {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(value);
   if (!match) return false;
-  const [year, month, day, hour, minute, second, zoneHour, zoneMinute] = match.slice(1).map((part) => Number(part ?? 0));
-  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1] ?? 0;
-  return month >= 1 && month <= 12 && day >= 1 && day <= days && hour < 24 && minute < 60 && second < 60 && zoneHour < 24 && zoneMinute < 60 && Date.parse(value) <= now + 3e5;
+  const [year2, month2, day2, hour, minute, second, zoneHour, zoneMinute] = match.slice(1).map((part) => Number(part ?? 0));
+  const leap = year2 % 4 === 0 && (year2 % 100 !== 0 || year2 % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month2 - 1] ?? 0;
+  return month2 >= 1 && month2 <= 12 && day2 >= 1 && day2 <= days && hour < 24 && minute < 60 && second < 60 && zoneHour < 24 && zoneMinute < 60 && Date.parse(value) <= now + 3e5;
 }
 function validateCandidateEvidence(input, now = Date.now()) {
   if (Buffer.byteLength(JSON.stringify(input), "utf8") > 64 * 1024) {
@@ -25229,7 +25377,7 @@ var routes = {
   encbird_get_context: { method: "GET", path: "/context" },
   encbird_list_expressions: { method: "GET", path: "/expressions", query: ["limit", "beforeAt"] },
   encbird_search_expressions: { method: "GET", path: "/expressions/search", query: ["query", "limit"] },
-  encbird_get_expression: { method: "GET", path: "/expressions/{id}", pathArguments: { id: "expressionId" } },
+  encbird_get_expression: { method: "GET", path: "/expressions/{id}", query: ["includeQuizAvailability"], pathArguments: { id: "expressionId" } },
   encbird_add_expression: { method: "POST", path: "/expressions" },
   encbird_list_review_quizzes: { method: "GET", path: "/review-quizzes" },
   encbird_submit_quiz_result: { method: "POST", path: "/quiz-results" },
@@ -25259,7 +25407,7 @@ var LearningTools = class {
     }
     this.tools = contract.status === "backend-aligned" ? contract.tools : [];
     this.routes = contract.routes ?? {};
-    if (contract.status === "backend-aligned" && (contract.contractVersion !== "3.0.0" || names.size !== Object.keys(routes).length || Object.keys(this.routes).length !== names.size)) {
+    if (contract.status === "backend-aligned" && (contract.contractVersion !== "3.1.0" || names.size !== Object.keys(routes).length || Object.keys(this.routes).length !== names.size)) {
       throw new SafeError("INVALID_CONTRACT", "The bundled learning contract is incomplete or incompatible. Ask the local operator to reinstall a compatible plugin before retrying; do not patch the contract manually.");
     }
     for (const tool of this.tools) {
@@ -25298,6 +25446,9 @@ var LearningTools = class {
     }
     const result = await auth2.callLearningTool(name, input);
     if (!this.outputValidators.get(name)(result)) throw new SafeError("INVALID_RESPONSE", `EncBird returned data that does not match the installed output schema. Ask the operator to align plugin and service versions before retrying. ${uncertainOutcome}`);
+    if (name === "encbird_get_expression" && input.includeQuizAvailability === true && !Object.hasOwn(result.data, "quizAvailability")) {
+      throw new SafeError("INVALID_RESPONSE", "EncBird did not return the requested quiz availability. Do not infer that questions are ready or absent. Ask the operator to align plugin and service versions before another availability check; ordinary detail reads remain available without this option.");
+    }
     return result;
   }
 };

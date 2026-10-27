@@ -10,7 +10,7 @@ const routes: Record<string, { method: 'GET' | 'POST'; path: string; query?: str
   encbird_get_context: { method: 'GET', path: '/context' },
   encbird_list_expressions: { method: 'GET', path: '/expressions', query: ['limit', 'beforeAt'] },
   encbird_search_expressions: { method: 'GET', path: '/expressions/search', query: ['query', 'limit'] },
-  encbird_get_expression: { method: 'GET', path: '/expressions/{id}', pathArguments: { id: 'expressionId' } },
+  encbird_get_expression: { method: 'GET', path: '/expressions/{id}', query: ['includeQuizAvailability'], pathArguments: { id: 'expressionId' } },
   encbird_add_expression: { method: 'POST', path: '/expressions' },
   encbird_list_review_quizzes: { method: 'GET', path: '/review-quizzes' },
   encbird_submit_quiz_result: { method: 'POST', path: '/quiz-results' },
@@ -42,7 +42,7 @@ export class LearningTools {
     }
     this.tools = contract.status === 'backend-aligned' ? contract.tools : [];
     this.routes = contract.routes ?? {};
-    if (contract.status === 'backend-aligned' && (contract.contractVersion !== '3.0.0' || names.size !== Object.keys(routes).length || Object.keys(this.routes).length !== names.size)) {
+    if (contract.status === 'backend-aligned' && (contract.contractVersion !== '3.1.0' || names.size !== Object.keys(routes).length || Object.keys(this.routes).length !== names.size)) {
       throw new SafeError('INVALID_CONTRACT', 'The bundled learning contract is incomplete or incompatible. Ask the local operator to reinstall a compatible plugin before retrying; do not patch the contract manually.');
     }
     for (const tool of this.tools) {
@@ -79,6 +79,10 @@ export class LearningTools {
     }
     const result = await auth.callLearningTool(name, input);
     if (!this.outputValidators.get(name)!(result)) throw new SafeError('INVALID_RESPONSE', `EncBird returned data that does not match the installed output schema. Ask the operator to align plugin and service versions before retrying. ${uncertainOutcome}`);
+    if (name === 'encbird_get_expression' && input.includeQuizAvailability === true &&
+        !Object.hasOwn(result.data as object, 'quizAvailability')) {
+      throw new SafeError('INVALID_RESPONSE', 'EncBird did not return the requested quiz availability. Do not infer that questions are ready or absent. Ask the operator to align plugin and service versions before another availability check; ordinary detail reads remain available without this option.');
+    }
     return result;
   }
 }

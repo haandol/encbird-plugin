@@ -1,8 +1,8 @@
 {
   "apiVersion": "1",
   "status": "backend-aligned",
-  "contractVersion": "3.0.0",
-  "openapiSha256": "51fd2e8f4c85fd14b5f6a2ecd6ffd3549c0adc2219141d3e0f346213a33ecca7",
+  "contractVersion": "3.1.0",
+  "openapiSha256": "64a846482750a1399f8804aa752c2bf7ce43cbb8f36cab6016dc5b7e7208e798",
   "tools": [
     {
       "name": "encbird_get_context",
@@ -492,7 +492,7 @@
     },
     {
       "name": "encbird_get_expression",
-      "description": "Read stored expression details.",
+      "description": "Read stored expression details and optionally check whether usable personal quiz material currently exists.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -500,6 +500,10 @@
             "type": "string",
             "maxLength": 128,
             "minLength": 1
+          },
+          "includeQuizAvailability": {
+            "type": "boolean",
+            "description": "Request current usable personal quiz availability. Omit or use false to keep the existing detail-only response. This read never generates questions."
           }
         },
         "required": [
@@ -636,6 +640,23 @@
                   "antonyms",
                   "usageFit",
                   "suggestedQuestions"
+                ],
+                "additionalProperties": false
+              },
+              "quizAvailability": {
+                "type": "object",
+                "description": "Present only when includeQuizAvailability is true. This is observed material availability, not generation progress, failure, or a promise about the next review selection.",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ready",
+                      "not_ready"
+                    ]
+                  }
+                },
+                "required": [
+                  "status"
                 ],
                 "additionalProperties": false
               }
@@ -809,7 +830,8 @@
           "rating": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 4
+            "maximum": 4,
+            "description": "Learner-selected recall rating: 1 = Again (다시), 2 = Hard (어려움), 3 = Good (좋음), 4 = Easy (쉬움). Explain these choices and use the learner's explicit selection; never infer a rating."
           },
           "completed": {
             "type": "boolean",
@@ -1368,7 +1390,9 @@
       "method": "GET",
       "path": "/expressions/{id}",
       "operationId": "get_expression",
-      "query": [],
+      "query": [
+        "includeQuizAvailability"
+      ],
       "pathArguments": {
         "id": "expressionId"
       }

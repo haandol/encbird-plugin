@@ -8,6 +8,8 @@ The agent communicates with a local Node process over standard input and output 
 
 The bundled [script runner](../plugins/encbird/skills/encbird-learning/scripts/encbird.mjs) is an alternative entry point for deterministic shell calls. Both entry points use [runtime.ts](../plugins/encbird/src/runtime.ts), so scripts keep the same authentication, tool validation, and safe result handling as MCP. The runner supports single calls and read-only plans of at most five sequential calls, validates plan schemas before execution, and stops on the first error. See [Server access](../plugins/encbird/skills/encbird-learning/references/server-access.md) for commands and authentication scope.
 
+Continue through the already-connected entry point. Prefer the host's connected MCP tools for interactive learning and small reads; choose the runner deliberately for a shell workflow or when host MCP tools are unavailable. Having a shell or a short read plan does not by itself justify switching a connected learner to a separate sign-in.
+
 Relative to the plugin directory, each configuration points to the following executable:
 
 | Configuration | Executable argument |
@@ -70,6 +72,6 @@ Normal installation requires no environment variables. For development or separa
 | `ENCBIRD_CREDENTIALS_DIR` | Defaults to `~/.encbird-plugin`. Use an actual absolute path to a local directory owned by and accessible only to the current user. Do not use symbolic links or the installed plugin directory. |
 | `ENCBIRD_AUTH_SCOPE` | A stable name separating authentication storage by agent or profile. Defaults to the agent name from MCP initialization, or `unknown-mcp-client` if no name is available. Assign distinct values when different profiles report the same name. |
 
-The script's default client name is `encbird-script`; it does not silently reuse another host's login. Set an explicit, stable `ENCBIRD_AUTH_SCOPE` in both entry points only when intentionally sharing a profile. Do not rotate scopes to evade request limits.
+The script's default client name is `encbird-script`; it has a separate profile from host MCP clients and does not silently reuse their login. Per-host/client credential isolation remains the default. A user or operator may explicitly configure the same stable `ENCBIRD_AUTH_SCOPE` in both entry points to share a profile. Agents must not set it automatically, discover another profile, or copy or migrate credentials to avoid separate sign-in. Do not rotate scopes to evade request limits.
 
 URL validation is implemented in [config.ts](../plugins/encbird/src/config.ts); credential paths and profile separation are implemented in `store.ts`. There is no environment variable setting for supplying API keys or authentication tokens.

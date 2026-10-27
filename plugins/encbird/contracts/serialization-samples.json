@@ -83,7 +83,8 @@
   },
   "encbird_get_expression": {
     "input": {
-      "expressionId": "example-1"
+      "expressionId": "example-1",
+      "includeQuizAvailability": true
     },
     "output": {
       "data": {
@@ -120,6 +121,9 @@
           "suggestedQuestions": [
             "fixture-value"
           ]
+        },
+        "quizAvailability": {
+          "status": "ready"
         }
       }
     }

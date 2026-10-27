@@ -1,6 +1,8 @@
 # Server access
 
-Use the installed MCP tools or `scripts/encbird.mjs` from this skill. The runner calls the same runtime as MCP, including authentication, input/output validation, privacy filtering, request pacing, and safe errors. Learning calls use the configured remote `/mcp` endpoint; configuration, sign-in and connection cleanup stay in the shared runtime. It does not accept arbitrary URLs or bearer tokens. Keep using the installed tools or runner when the transport changes; do not recreate its login or HTTP flow.
+Keep using the already-connected access path. Prefer the host's installed MCP tools for interactive learning and small reads when that connection is available. Choose `scripts/encbird.mjs` from this skill deliberately for a shell workflow or when host MCP tools are unavailable; do not switch a connected learner to the runner just because a shell or read plan is available.
+
+The runner calls the same runtime as MCP, including authentication, input/output validation, privacy filtering, request pacing, and safe errors. Learning calls use the configured remote `/mcp` endpoint; configuration, sign-in and connection cleanup stay in the shared runtime. It does not accept arbitrary URLs or bearer tokens. Keep using the installed tools or runner when the transport changes; do not recreate its login or HTTP flow.
 
 ## Connection and credentials
 
@@ -8,7 +10,9 @@ For MCP, `encbird_connect` starts browser sign-in and returns `authentication_pe
 
 `CONNECTION_INACTIVE` requires a new connection after cleanup. On `OAUTH_INVALID_GRANT` or `reauthenticationRequired`, have the learner sign in to the same account. Cancelled or wrong-account sign-in does not complete recovery. Use the tool's returned next step for incomplete cleanup and report complete revocation only after `disconnected`. Do not delete pending credential records. Recovery does not log the learner out of other applications.
 
-The script uses the fixed client name `encbird-script`, so by default it has a separate sign-in from a host's MCP connection. Sign in once through the script before using its account tools. An explicitly configured, stable `ENCBIRD_AUTH_SCOPE` can share a profile between MCP and scripts; do not guess an existing profile or change it between retries. Authentication scope is not a substitute for actual `sourceHost` or `sourceSessionId` in learning evidence.
+Credentials are isolated by host/client profile by default. The script uses the fixed client name `encbird-script`, so a connected host does not automatically sign the script in. If the runner is deliberately selected and has no connection, explain its separate sign-in and connect through the script. Reuse an existing runner connection when continuing that workflow.
+
+Never discover another host's credential files, copy or migrate credentials, or set `ENCBIRD_AUTH_SCOPE` automatically to reuse its login. A user or operator can deliberately configure the same stable `ENCBIRD_AUTH_SCOPE` for MCP and scripts to share a profile; this is an explicit configuration choice, not the default or a workaround for failed sign-in. Preserve that choice without guessing profiles or changing scope between retries. Authentication scope is not a substitute for actual `sourceHost` or `sourceSessionId` in learning evidence.
 
 ## Script commands
 

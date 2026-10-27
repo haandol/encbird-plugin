@@ -1,0 +1,417 @@
+[
+  {
+    "name": "review compact phone",
+    "text": "My phone number is 2025550100.",
+    "reject": true
+  },
+  {
+    "name": "review formatted phone",
+    "text": "My phone number is 202-555-0100.",
+    "reject": true
+  },
+  {
+    "name": "Korean compact phone",
+    "text": "전화번호는 01012345678입니다.",
+    "reject": true
+  },
+  {
+    "name": "Korean landline",
+    "text": "02-1234-5678",
+    "reject": true
+  },
+  {
+    "name": "US parentheses",
+    "text": "(202) 555-0100",
+    "reject": true
+  },
+  {
+    "name": "US adjacent parentheses",
+    "text": "(202)555-0100",
+    "reject": true
+  },
+  {
+    "name": "US country prefix",
+    "text": "+1 (202) 555-0100",
+    "reject": true
+  },
+  {
+    "name": "UK grouped",
+    "text": "020 7946 0958",
+    "reject": true
+  },
+  {
+    "name": "UK international",
+    "text": "+44 20 7946 0958",
+    "reject": true
+  },
+  {
+    "name": "international dial prefix",
+    "text": "Call me at 00442079460958",
+    "reject": true
+  },
+  {
+    "name": "France international",
+    "text": "+33 1 42 68 53 00",
+    "reject": true
+  },
+  {
+    "name": "Japan international compact",
+    "text": "+81312345678",
+    "reject": true
+  },
+  {
+    "name": "labelled short local",
+    "text": "Tel: 5550100",
+    "reject": true
+  },
+  {
+    "name": "labelled international",
+    "text": "Phone: 442079460958",
+    "reject": true
+  },
+  {
+    "name": "telephone number",
+    "text": "My telephone number is 2025550100.",
+    "reject": true
+  },
+  {
+    "name": "Korean mobile label",
+    "text": "휴대전화 번호는 01012345678입니다.",
+    "reject": true
+  },
+  {
+    "name": "multiple compact phones",
+    "text": "Phone: 2025550100. Phone: 3035550101.",
+    "reject": true
+  },
+  {
+    "name": "fullwidth",
+    "text": "전화번호: ＋８２（１０）１２３４－５６７８",
+    "reject": true
+  },
+  {
+    "name": "Arabic Indic",
+    "text": "Phone: ٢٠٢٥٥٥٠١٠٠",
+    "reject": true
+  },
+  {
+    "name": "Eastern Arabic Indic",
+    "text": "Phone: ۲۰۲۵۵۵۰۱۰۰",
+    "reject": true
+  },
+  {
+    "name": "Devanagari",
+    "text": "Phone: २०२५५५०१००",
+    "reject": true
+  },
+  {
+    "name": "astral digits",
+    "text": "Phone: 𝟚𝟘𝟚𝟝𝟝𝟝𝟘𝟙𝟘𝟘",
+    "reject": true
+  },
+  {
+    "name": "mixed digits",
+    "text": "Phone: ２０2٥٥٥0100",
+    "reject": true
+  },
+  {
+    "name": "Unicode dashes",
+    "text": "202‐555‑0100",
+    "reject": true
+  },
+  {
+    "name": "Unicode minus",
+    "text": "202−555−0100",
+    "reject": true
+  },
+  {
+    "name": "Unicode spaces",
+    "text": "+44 20 7946 0958",
+    "reject": true
+  },
+  {
+    "name": "review ISO birth date",
+    "text": "My date of birth is 1990-01-01.",
+    "reject": true
+  },
+  {
+    "name": "DOB slash",
+    "text": "DOB: 01/31/1990",
+    "reject": true
+  },
+  {
+    "name": "DOB day first",
+    "text": "DOB: 31.01.1990",
+    "reject": true
+  },
+  {
+    "name": "DOB short year",
+    "text": "DOB: 31/01/90",
+    "reject": true
+  },
+  {
+    "name": "DOB compact",
+    "text": "DOB: 19900101",
+    "reject": true
+  },
+  {
+    "name": "DOB abbreviated",
+    "text": "D.O.B.: 1990-01-01",
+    "reject": true
+  },
+  {
+    "name": "birthdate",
+    "text": "My birthdate is 1990/1/1.",
+    "reject": true
+  },
+  {
+    "name": "born numeric",
+    "text": "I was born on 1990-01-01.",
+    "reject": true
+  },
+  {
+    "name": "born month name",
+    "text": "I was born on January 1, 1990.",
+    "reject": true
+  },
+  {
+    "name": "born day first",
+    "text": "I was born on 1 January 1990.",
+    "reject": true
+  },
+  {
+    "name": "DOB ordinal",
+    "text": "Date of birth: 1st of Jan. 1990",
+    "reject": true
+  },
+  {
+    "name": "birthday month and day",
+    "text": "My birthday is January 1.",
+    "reject": true
+  },
+  {
+    "name": "birthday numeric",
+    "text": "My birthday is 01/01.",
+    "reject": true
+  },
+  {
+    "name": "date before DOB",
+    "text": "January 1, 1990 is my date of birth.",
+    "reject": true
+  },
+  {
+    "name": "Korean ISO",
+    "text": "생년월일은 1990-01-01입니다.",
+    "reject": true
+  },
+  {
+    "name": "Korean numeric",
+    "text": "생년월일: 1990년 1월 1일",
+    "reject": true
+  },
+  {
+    "name": "Korean compact short",
+    "text": "생년월일: 900101",
+    "reject": true
+  },
+  {
+    "name": "Korean birthday",
+    "text": "생일은 1월 1일입니다.",
+    "reject": true
+  },
+  {
+    "name": "Korean born",
+    "text": "1990년 1월 1일에 태어났어요.",
+    "reject": true
+  },
+  {
+    "name": "Korean date before label",
+    "text": "1990-01-01이 제 생년월일입니다.",
+    "reject": true
+  },
+  {
+    "name": "fullwidth DOB",
+    "text": "ＤＯＢ： １９９０／０１／０１",
+    "reject": true
+  },
+  {
+    "name": "Unicode DOB",
+    "text": "DOB: ١٩٩٠−٠١−٠١",
+    "reject": true
+  },
+  {
+    "name": "activity ISO",
+    "text": "I practiced English on 2026-10-01.",
+    "reject": false
+  },
+  {
+    "name": "activity US",
+    "text": "I practiced English on 10/01/2026.",
+    "reject": false
+  },
+  {
+    "name": "activity month name",
+    "text": "I joined a class on January 1, 1990.",
+    "reject": false
+  },
+  {
+    "name": "activity Korean",
+    "text": "1990년 1월 1일에 영어를 공부했어요.",
+    "reject": false
+  },
+  {
+    "name": "activity fullwidth",
+    "text": "２０２６年１０月１日に英語を練習しました。",
+    "reject": false
+  },
+  {
+    "name": "compact activity date",
+    "text": "My practice date was 20261001.",
+    "reject": false
+  },
+  {
+    "name": "birthday without date",
+    "text": "I enjoy celebrating birthdays with friends.",
+    "reject": false
+  },
+  {
+    "name": "birthday relative",
+    "text": "My birthday is next week.",
+    "reject": false
+  },
+  {
+    "name": "Korean birthday relative",
+    "text": "생일에 친구들과 영어로 대화했어요.",
+    "reject": false
+  },
+  {
+    "name": "birthday party date",
+    "text": "I attended a birthday party on 2026-10-01.",
+    "reject": false
+  },
+  {
+    "name": "Korean birthday party date",
+    "text": "2026-10-01 생일 파티에서 영어로 노래했어요.",
+    "reject": false
+  },
+  {
+    "name": "unrelated date after DOB topic",
+    "text": "We learned the phrase date of birth. Class was on 2026-10-01.",
+    "reject": false
+  },
+  {
+    "name": "unrelated Korean date",
+    "text": "생년월일 묻는 표현을 2026-10-01에 연습했어요.",
+    "reject": false
+  },
+  {
+    "name": "observed timestamp text",
+    "text": "Observed at 2026-10-01T09:12:30.123456789+09:00.",
+    "reject": false
+  },
+  {
+    "name": "counts",
+    "text": "I read 123 pages and practiced for 45 minutes.",
+    "reject": false
+  },
+  {
+    "name": "decimal",
+    "text": "I practiced saying 3.1415926535.",
+    "reject": false
+  },
+  {
+    "name": "decimal fraction",
+    "text": "The ratio is 0.1234567890.",
+    "reject": false
+  },
+  {
+    "name": "project revenue",
+    "text": "The project revenue was 1234567890",
+    "reject": false
+  },
+  {
+    "name": "short number",
+    "text": "I practiced saying 5550100.",
+    "reject": false
+  },
+  {
+    "name": "ordinary ten digits",
+    "text": "I practiced saying 2025550100.",
+    "reject": false
+  },
+  {
+    "name": "numeric source ID",
+    "text": "1234567890",
+    "reject": false
+  },
+  {
+    "name": "ordinary eleven digits",
+    "text": "The example quantity is 12345678901.",
+    "reject": false
+  },
+  {
+    "name": "ordinary twelve digits",
+    "text": "The example quantity is 123456789012.",
+    "reject": false
+  },
+  {
+    "name": "ordinary fifteen digits",
+    "text": "The example quantity is 123456789012345.",
+    "reject": false
+  },
+  {
+    "name": "leading zeros",
+    "text": "I practiced reading 00442079460958.",
+    "reject": false
+  },
+  {
+    "name": "long quantity",
+    "text": "The example quantity is 1234567890123456.",
+    "reject": false
+  },
+  {
+    "name": "identifier",
+    "text": "Exercise lesson2025550100a helped me.",
+    "reject": false
+  },
+  {
+    "name": "phone phrase",
+    "text": "I practiced asking for a phone number.",
+    "reject": false
+  },
+  {
+    "name": "born phrase",
+    "text": "I practiced the question Where were you born?",
+    "reject": false
+  },
+  {
+    "name": "grammar evidence",
+    "text": "I said 'I go yesterday' and need to practice past tense.",
+    "reject": false
+  },
+  {
+    "name": "phone on next line",
+    "text": "Phone:\n2025550100",
+    "reject": true
+  },
+  {
+    "name": "multiple labelled compact phones",
+    "text": "Phone: 2025550100 3035550101",
+    "reject": true
+  },
+  {
+    "name": "birthday linked by is on",
+    "text": "My birthday is on January 1, 1990.",
+    "reject": true
+  },
+  {
+    "name": "born date with article",
+    "text": "I was born on the 1st of January 1990.",
+    "reject": true
+  },
+  {
+    "name": "DOB on next line",
+    "text": "DOB:\n1990-01-01",
+    "reject": true
+  }
+]

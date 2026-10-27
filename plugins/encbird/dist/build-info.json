@@ -1,8 +1,8 @@
 {
   "node": ">=22.12.0",
-  "contractsSha256": "373c36c73535b93c5e187f7011493ddab626c369b45569fd9073db5f0ebd438d",
-  "bundleSha256": "6aba959aae27b1d4be7b6bae64fde187fee2d240c0784148dac676e9c98db266",
-  "cliSha256": "1e43e1be56d0c612a58cb2247ea6702ba57817efa6e274f6dea1bc132a683576",
+  "contractsSha256": "5fdbd61302a46252a8d0dacab194e7af2bc1a544c7073c7b70cfe7d3ee1b1149",
+  "bundleSha256": "2cb11078e93bfdda163e17f4e75fe0c11bf55fdaf0e2ce0b12460162dff10e1a",
+  "cliSha256": "ef7b601cc2731a4cb96658e65469d2a1947f72e3fcdff9c1e79666445c3c8f24",
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.31.0",
     "ajv": "8.20.0",
@@ -319,6 +319,7 @@
     "../../node_modules/jose/dist/webapi/key/generate_secret.js",
     "../../node_modules/jose/dist/webapi/index.js",
     "src/oauth.ts",
+    "src/privacy-identifiers.ts",
     "src/privacy.ts",
     "../../node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/client.js",
     "../../node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js",

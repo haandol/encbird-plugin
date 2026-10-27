@@ -3,7 +3,7 @@
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "info": {
     "title": "EncBird Agent Learning API",
-    "version": "3.0.0",
+    "version": "3.1.0",
     "description": "Public HTTP contract for EncBird-generated learning materials, basic profile, expression registration and review, and consented learning candidates. EncBird evaluates candidates before updating learning memory; direct memory access is unavailable."
   },
   "servers": [
@@ -718,7 +718,7 @@
     "/expressions/{id}": {
       "get": {
         "operationId": "get_expression",
-        "summary": "Read stored expression details.",
+        "summary": "Read stored expression details and optionally check whether usable personal quiz material currently exists.",
         "x-mcp-tool": "encbird_get_expression",
         "security": [
           {
@@ -861,6 +861,23 @@
                             "suggestedQuestions"
                           ],
                           "additionalProperties": false
+                        },
+                        "quizAvailability": {
+                          "type": "object",
+                          "description": "Present only when includeQuizAvailability is true. This is observed material availability, not generation progress, failure, or a promise about the next review selection.",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "ready",
+                                "not_ready"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "status"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -922,6 +939,15 @@
               "minLength": 1
             },
             "x-mcp-argument": "expressionId"
+          },
+          {
+            "name": "includeQuizAvailability",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Request current usable personal quiz availability. Omit or use false to keep the existing detail-only response. This read never generates questions."
+            }
           }
         ],
         "x-required-scopes": [
@@ -1235,7 +1261,8 @@
                   "rating": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 4
+                    "maximum": 4,
+                    "description": "Learner-selected recall rating: 1 = Again (다시), 2 = Hard (어려움), 3 = Good (좋음), 4 = Easy (쉬움). Explain these choices and use the learner's explicit selection; never infer a rating."
                   },
                   "completed": {
                     "type": "boolean",
@@ -1944,7 +1971,7 @@
         "operationId": "accept_suggested_expression",
         "x-mcp-tool": "encbird_accept_suggested_expression",
         "summary": "Acknowledge an already registered NORMAL expression and close its version-pinned recommendation without charging.",
-        "description": "A separate zero-charge acknowledgement requiring existing NORMAL vocabulary and the original selected phraseHash/version. Preserve registrationKey from the successful registration attempt. An immutable receipt maps InputPhrase to VocabularyID for corrected spelling. If no receipt exists after an already-owned preview, NORMAL vocabulary must have the candidate hash itself. On failure the dictionary registration remains complete: retry acceptance with the exact same payload, without charging or generating again.",
+        "description": "A separate zero-charge acknowledgement requiring existing NORMAL vocabulary and the original selected phraseHash/version. Preserve the original registrationKey. An existing registration receipt remains authoritative and binds corrected spelling; invalid or unrelated receipts cannot be bypassed. Without a receipt, the original expression or an existing valid server-owned spelling alias may establish current ownership. An alias-based state change verifies the alias, receipt absence, owned NORMAL expression and selected recommendation together at commit; it does not establish a historical preview or registration. On failure dictionary registration remains complete: retry acceptance with the exact same payload, without charging or generating again.",
         "security": [
           {
             "bearerAuth": []
