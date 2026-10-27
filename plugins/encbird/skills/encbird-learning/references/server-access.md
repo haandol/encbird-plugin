@@ -25,7 +25,7 @@ node scripts/encbird.mjs describe encbird_search_expressions
 
 `list` returns names, descriptions, and read-only flags without contacting the service. `describe` returns one tool's complete schema. Use these only when the needed schema is not already available.
 
-For one call, pass exactly one JSON arguments object on standard input. Keep user content out of shell interpolation; use a safely written input file for dynamic text.
+Apply [Privacy and evidence](privacy.md) before creating input files, command arguments or standard input, including every entry of a read plan. For one call, pass exactly one JSON arguments object on standard input. Keep user content out of shell interpolation; use a safely written input file for dynamic text.
 
 ```sh
 node scripts/encbird.mjs call encbird_connect <<'JSON'

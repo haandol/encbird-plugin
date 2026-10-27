@@ -4,7 +4,7 @@ Read this reference before submitting profile, activity, or learning observation
 
 ## Source and permission
 
-Establish the learner's permission for the source and persistence scope before collecting host/session context. Reuse permission already given for this scope. Do not collect unrelated conversations, private files, contacts, secrets, or identifiers. Send only useful learning excerpts; never disguise rejected private content to bypass input validation.
+Establish the learner's permission for the source and persistence scope before collecting host/session context. Reuse permission already given for this scope; that permission does not authorize sending PII. Do not collect unrelated conversations, private files, contacts, secrets, or identifiers. Apply [Privacy and evidence](privacy.md) to the complete payload before submission. Remove PII from host-authored observations before their first submission; retain only safe, unchanged excerpts as actual user messages. Omit unsafe messages and unsupported candidate evidence instead of masking them or fabricating replacement utterances. If no safe useful candidate remains, do not call the tool.
 
 ## Submission and status
 

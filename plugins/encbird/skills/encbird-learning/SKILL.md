@@ -18,6 +18,12 @@ Read only the reference needed for the current action:
 
 The plugin exposes 12 learning tools plus connect/disconnect. It cannot read, search, write, correct, delete, or export memory, expose `factRefs`, or save host-generated recommendations. Basic context contains only `dataSource`, `name`, and `cefrLevel`.
 
+## Exclude PII before sending learning data
+
+Never put personally identifiable information (PII) or secrets in EncBird learning arguments, including queries, expressions, quiz answers, candidate summaries, messages and metadata. Review the exact outgoing payload locally and send only the minimum useful nonidentifying information. Permission to use learning context does not waive this rule; do not rely on a filter, probe it with raw data, or disguise PII to get it accepted.
+
+Follow [Privacy and evidence](references/privacy.md) before sending learner text or context. Generalized observations belong only in host-authored candidates. Preserve real evidence and actual answers; if they cannot be sent safely, omit the affected submission rather than fabricating a sanitized attempt or changing an uncertain earlier write. Keep authentication in the runtime and required opaque references in their defined fields.
+
 ## Use account tools deliberately
 
 Keep using the already-connected access path. When the host's MCP connection is available, prefer its installed tools for interactive learning and small reads. The bundled runner described in Server access is a deliberate alternative for shell workflows, such as a predetermined read plan, or when host MCP tools are unavailable; shell availability alone is not a reason to switch.

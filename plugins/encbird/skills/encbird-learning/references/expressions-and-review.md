@@ -2,6 +2,8 @@
 
 Read this reference when searching or registering expressions, or recording quiz attempts. Adapt explanations and practice format to the learner while preserving the following data and consent rules.
 
+Apply [Privacy and evidence](privacy.md) before sending queries, expressions or answers. An actual answer containing PII must not be submitted or replaced with a sanitized answer under the same attempt; keep feedback in the current conversation and explain the unsaved result without repeating the identifying detail.
+
 ## Expression dictionary
 
 Context returns only `dataSource`, `name`, and `cefrLevel`, not a private profile or a complete memory history. Expression lists/search return `items`, `truncated`, `moreMayExist`, and `coverage`. Report those limits instead of claiming exhaustive search. Read details with `expressionId`; the result is `data.expression`.
