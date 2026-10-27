@@ -100,6 +100,14 @@ claude plugin install encbird@encbird
 
 다시 로그인하라는 안내가 나오면 같은 계정으로 연결을 요청하세요. 연결을 해제하려면 “잉크버드(EncBird) 계정 연결을 해제해줘”라고 요청합니다. 해제가 완료되지 않았다는 안내가 나오면 다시 요청해 완료 여부를 확인합니다.
 
+## 버전과 저장소 관리
+
+잉크버드(EncBird) 플러그인의 코드와 버전은 공개 저장소 [haandol/encbird-plugin](https://github.com/haandol/encbird-plugin)에서 관리합니다. 버전별 변경 사항과 배포 파일은 발행된 [GitHub Releases](https://github.com/haandol/encbird-plugin/releases)에서 확인할 수 있습니다.
+
+위 마켓플레이스 설치 명령은 저장소를 등록하며 특정 릴리즈 태그를 지정하지 않습니다. GitHub Release 발행만으로 설치 버전이 그 태그에 고정되지는 않으므로, 설치·업데이트 상태는 사용하는 도구에서 확인하세요.
+
+개발자는 공개 저장소를 별도로 clone하여 Dev Container에서 작업합니다. 다른 저장소에서 submodule로 연결할 때는 호환성을 검증한 커밋 SHA를 고정합니다. 개발·배포 절차는 [개발 안내](docs/development.md), [버전 릴리즈 안내](docs/releases.md), [에이전트 지침](AGENTS.md)을 참고하세요.
+
 ## 라이선스와 소유권
 
 이 플러그인의 소유권과 저작권은 잉크버드(EncBird)에 있습니다.

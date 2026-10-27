@@ -14,6 +14,13 @@
 - Choose the language by the document's audience, not its filename or whether it is publicly accessible. `docs/README.md` is an English maintenance index; public availability does not make it an end-user guide.
 - Preserve original license texts, legal notices, external source quotations, and exact technical identifiers. Documentation language does not change the language of learner content or the user's conversation.
 
+## Repository ownership and integration
+
+- This public repository owns the plugin source, skills, distribution files, versions and releases. EncBird service implementation stays outside it. Keep public API contracts sufficient for client development without copying private implementation or review metadata.
+- Use a standalone public clone for development and the project Dev Container for builds and publication. A consumer may pin this repository as a submodule for integration checks; that pin records a commit SHA, not a moving branch or tag. Do not mount a private consumer repository to make external submodule or worktree Git metadata accessible in the container.
+- Make a referenced public commit available before a consumer pushes its updated submodule pointer. Prefer a verified release commit for that pin, and reverify the final SHA when merging changes it. Local commits and consumer pin updates do not authorize any remote push or release.
+- Confirm that a backward-compatible service API is available before exposing a plugin that depends on it on public `main`. Current marketplace installation commands select this repository without a release tag; publishing a GitHub Release does not itself pin marketplace installations. Keep plugin and API contract versions independent and follow [Versioned releases](docs/releases.md).
+
 ## Versioned releases and Git pushes
 
 - Publish this plugin only to the public `haandol/encbird-plugin` repository. Release preparation, tag pushes, drafts, and GitHub Release publication run inside the image built from this repository's `.devcontainer/Dockerfile`. Never fall back to a host or arbitrary Linux process.
