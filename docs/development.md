@@ -4,7 +4,9 @@ This repository contains everything needed to modify and test the plugin. Tests 
 
 ## Development environment
 
-Install Docker and the VS Code Dev Containers extension, open the repository, and run **Dev Containers: Reopen in Container**. The [Dockerfile](../.devcontainer/Dockerfile) installs Node 24, Git, GitHub CLI, and development tools. The [container configuration](../.devcontainer/devcontainer.json) runs `npm ci --ignore-scripts` when the container is first created.
+Install Docker and the VS Code Dev Containers extension, open the repository, and run **Dev Containers: Reopen in Container**. The [Dockerfile](../.devcontainer/Dockerfile) installs Node 24, Git, GitHub CLI, and development tools. The [container configuration](../.devcontainer/devcontainer.json) prepares its dependency/test volumes, installs the repository pre-push guard, and runs `npm ci --ignore-scripts` when first created. Startup refreshes the guard without replacing existing security hooks.
+
+Use a standalone clone of the public repository for Dev Containers. A submodule or linked worktree whose Git metadata lives outside the mounted workspace cannot run Git there; do not mount the private EncBird repository to repair that.
 
 Source files are shared with the host. Each container uses separate volumes for `node_modules` and `.test-tmp`. Closing the VS Code window stops the container.
 
@@ -19,14 +21,14 @@ npm ci --ignore-scripts
 npm run check
 ```
 
-The `check` script in the [root package.json](../package.json) runs these steps in order:
+The `check` script in the [root package.json](../package.json) checks versions, typechecks/builds, runs runtime and release-tool tests, then validates the distribution:
 
 | Command | Scope |
 | --- | --- |
-| `npm run typecheck` | TypeScript type checking |
-| `npm run build` | Generate the executable bundle, third-party license notices, and build metadata |
-| `npm test` | Test authentication, connection recovery, remote MCP calls, script plans, request controls and credential storage against mocks |
-| `npm run validate` | Check plugin configuration, API contracts, serialization samples, and bundle hashes |
+| `npm run version:check` / `npm run validate` | Version consistency, configuration, contracts and distribution hashes |
+| `npm run typecheck` / `npm run build` | TypeScript, executable bundles, license notices and build metadata |
+| `npm test` | Runtime behavior against mock OAuth and MCP services |
+| `npm run test:release` | Version, Docker guard, hook and release workflow fixtures; no real publication |
 
 Type checking and build commands are defined in the [plugin package.json](../plugins/encbird/package.json). Tests live in [test/](../plugins/encbird/test/); distribution checks are implemented in [validate.mjs](../scripts/validate.mjs).
 
@@ -51,4 +53,4 @@ The MCP and script bundle hashes are both checked. Distribution must include the
 
 Inspect the diff, including generated files, before committing. New documentation, examples, and contract descriptions should contain only information needed to maintain the public client. Preserve API input and output requirements and error handling without copying private service implementation details.
 
-For local pushes, follow the [Docker push procedure in AGENTS.md](../AGENTS.md). After pushing, verify that the remote branch commit matches local `HEAD`.
+Follow [Versioned releases](releases.md) for preparation, tag pushes and GitHub publication. Git pushes run in the project Dev Container; the installed repository hook rejects host pushes. Verify the intended remote commit after any authorized push.

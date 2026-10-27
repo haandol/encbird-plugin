@@ -9,3 +9,7 @@ docs/evidence/*.txt
 .env
 .env.*
 *.log
+
+.release/
+__pycache__/
+*.py[cod]

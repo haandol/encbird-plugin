@@ -23146,6 +23146,40 @@ var StreamableHTTPClientTransport = class {
   }
 };
 
+// package.json
+var package_default = {
+  name: "encbird-learning-plugin",
+  version: "0.1.0",
+  private: true,
+  license: "Apache-2.0",
+  author: "EncBird",
+  description: "EncBird expression learning through a local MCP bridge and browser sign-in.",
+  type: "module",
+  engines: { node: ">=22.12.0" },
+  scripts: {
+    build: "node scripts/build.mjs",
+    typecheck: "tsc --noEmit",
+    test: "tsx --test --test-concurrency=1 test/*.test.ts",
+    start: "node dist/index.js"
+  },
+  dependencies: {
+    "@modelcontextprotocol/sdk": "1.31.0",
+    ajv: "8.20.0",
+    jose: "6.2.12",
+    "proper-lockfile": "4.1.2"
+  },
+  devDependencies: {
+    "@types/node": "24.10.1",
+    "@types/proper-lockfile": "4.1.4",
+    esbuild: "0.28.2",
+    tsx: "4.21.0",
+    typescript: "5.9.3"
+  }
+};
+
+// src/version.ts
+var pluginVersion = package_default.version;
+
 // src/remote.ts
 function remoteMcpUrl(base) {
   return new URL("/mcp", validateBase(base)).href;
@@ -23180,7 +23214,7 @@ function toolEnvelope(result) {
 }
 async function callRemoteTool(base, currentToken, name, args, timeoutMs = 15e3) {
   const endpoint = remoteMcpUrl(base);
-  const client = new Client({ name: "encbird-stdio-bridge", version: "0.1.0" }, { capabilities: {} });
+  const client = new Client({ name: "encbird-stdio-bridge", version: pluginVersion }, { capabilities: {} });
   client.onerror = () => {
   };
   const inFlight = /* @__PURE__ */ new Set();
@@ -25484,7 +25518,7 @@ var PluginRuntime = class {
 
 // src/server.ts
 function createServer2() {
-  const server2 = new Server({ name: "encbird", version: "0.1.0" }, {
+  const server2 = new Server({ name: "encbird", version: pluginVersion }, {
     capabilities: { tools: {} },
     instructions: "Reads return EncBird-generated materials and basic profile only. Memory candidates are intake for EncBird evaluation, not direct memory writes or confirmation; completed processing may produce zero facts. Do not expose memory, fact references, or directly edit profiles from candidates. Use EncBird tools for account data; adapt teaching and explanations to the learner. Sign in through the browser, never request tokens. Reuse relevant results and avoid polling or parallel request loops. Honor retryAfterSeconds. Retry a write only with its original input/key when the error permits it. Report saves only when confirmed. Preserve user approval and learner ratings. Before sending any learning arguments, exclude PII and secrets: identifying names, contact details, exact birth dates or locations, government/account/payment identifiers, health or biometric details, and identifying combinations. Check queries, expressions, answers, candidates, messages and metadata; send only minimum nonidentifying information and required opaque references. Context consent and passing filters do not authorize PII uploads. Do not probe filters with raw PII or disguise it across fields or transports. Generalized observations are host-authored candidates, never actual user messages. Omit unsafe evidence and its references; if an actual answer contains PII, do not submit or rewrite it as the original attempt. Withhold uncertain cases and preserve prior operation inputs/keys without replaying PII. Keep authentication inside the runtime."
   });

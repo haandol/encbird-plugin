@@ -14,74 +14,14 @@
 - Choose the language by the document's audience, not its filename or whether it is publicly accessible. `docs/README.md` is an English maintenance index; public availability does not make it an end-user guide.
 - Preserve original license texts, legal notices, external source quotations, and exact technical identifiers. Documentation language does not change the language of learner content or the user's conversation.
 
-## Local Git pushes
+## Versioned releases and Git pushes
 
-- Run every local `git push` inside a Docker container, never directly on the host. Use an image built from this repository's `.devcontainer/Dockerfile`. `devcontainer` refers to the execution environment, not a branch name.
-- Check the working tree, current branch, remote, and push target first. Unless the user specifies a target, use the current branch's upstream remote branch. If no upstream exists and the target is unclear, ask the user.
-- Pass the host's `gh` login credential to the container through standard input. Never print the token or store it in a file, command-line argument, or Git remote URL. Use `gh auth git-credential` inside the container.
-- Mount the repository at `/workspaces/encbird-plugin` in a disposable container. Do not modify the host's global Git configuration.
-- Wait for the push to finish and verify that the remote branch commit matches local `HEAD`. After an interrupted push, check whether it took effect before retrying. Do not force-push without an explicit request.
-
-### Example
-
-Run from the repository root with Docker running and a successful host `gh auth status`. This example pushes to the current branch's upstream.
-
-```sh
-git status --short --branch
-git remote -v
-gh auth status
-docker build -t encbird-plugin-devcontainer:local .devcontainer
-```
-
-After the image builds successfully, run the following script. The host retrieves credentials and starts the container; the container performs the push and verifies the remote commit.
-
-```sh
-python3 - <<'PY'
-from pathlib import Path
-import subprocess
-
-
-def git(*args):
-    return subprocess.check_output(['git', *args], text=True).strip()
-
-
-root = git('rev-parse', '--show-toplevel')
-branch = git('symbolic-ref', '--short', 'HEAD')
-remote = git('config', '--get', f'branch.{branch}.remote')
-target = git('config', '--get', f'branch.{branch}.merge')
-if remote == '.' or not target.startswith('refs/heads/'):
-    raise SystemExit('Configure a remote branch upstream before running this script.')
-
-credential = subprocess.run(
-    ['gh', 'auth', 'token'], check=True, capture_output=True, text=True
-).stdout.strip()
-if not credential:
-    raise SystemExit('Could not retrieve a GitHub authentication token.')
-
-script = '''set -eu
-read -r GH_TOKEN
-export GH_TOKEN
-export GIT_TERMINAL_PROMPT=0
-remote="$1"
-target="$2"
-git_auth() {
-    git -c credential.helper= -c 'credential.helper=!gh auth git-credential' "$@"
-}
-git_auth push "$remote" "HEAD:$target"
-expected=$(git rev-parse HEAD)
-actual=$(git_auth ls-remote --heads "$remote" "$target" | cut -f1)
-test "$expected" = "$actual"
-printf 'Verified %s: %s\\n' "$target" "$actual"
-'''
-result = subprocess.run(
-    ['docker', 'run', '--rm', '-i',
-     '--mount', f'type=bind,source={Path(root)},target=/workspaces/encbird-plugin',
-     'encbird-plugin-devcontainer:local',
-     'sh', '-c', script, 'encbird-plugin-push', remote, target],
-    input=credential + '\n', text=True,
-)
-raise SystemExit(result.returncode)
-PY
-```
-
-If the user specifies a different remote branch, set `remote` and `target` to that confirmed destination. If authentication or Docker execution fails, resolve the cause and retry through Docker; do not fall back to pushing directly from the host.
+- Publish this plugin only to the public `haandol/encbird-plugin` repository. Release preparation, tag pushes, drafts, and GitHub Release publication run inside the image built from this repository's `.devcontainer/Dockerfile`. Never fall back to a host or arbitrary Linux process.
+- Setup and preparation do not authorize publication. Follow the user's requested action level; a configuration-only request must not bump the real version, create a real release tag, push, or publish. Ordinary branch pushes do not publish releases.
+- Use [Release workflow](docs/releases.md) and the maintained scripts. Keep the plugin version synchronized across packages, lockfile, host manifests and marketplace metadata. The API contract version is independent.
+- Use the current branch's intended upstream for an authorized branch push; specify the destination when it is otherwise ambiguous. Release scripts publish only the verified version tag and release assets for a commit already on remote `main`.
+- Install the repository pre-push guard with `npm run hooks:install`; Dev Container startup also installs it. Preserve existing hooks, signatures and remote protections. Never disable them, use `--no-verify`, force-push, or change environments to bypass an explicit rejection.
+- The local guard requires the project Docker marker and rejects host pushes. It is a local workflow control, not GitHub attestation of the operator's machine; do not claim it removes the owner's ability to deliberately bypass local controls.
+- Pass the host's GitHub CLI credential to the container through standard input using `scripts/release-with-token.sh`. Never print it, store it in a file, put it in arguments/remote URLs, or mount the host credential directories. Do not run builds or tests with a real publication token.
+- Verify version, commit, annotated tag, archive contents and checksum, public repository, and applicable remote checks. Reuse identical results after interruption; never overwrite a conflicting tag, release or asset. Wait for publication and verify its actual public state before reporting success.
+- Release notes describe user-visible plugin changes in Korean. Never include private service implementation, operational data, credentials or user content. Temporary packages and notes belong in ignored `.release/` output, not source.

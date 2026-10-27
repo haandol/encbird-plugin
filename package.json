@@ -5,13 +5,27 @@
   "license": "Apache-2.0",
   "author": "EncBird",
   "type": "module",
-  "workspaces": ["plugins/encbird"],
+  "workspaces": [
+    "plugins/encbird"
+  ],
   "scripts": {
     "build": "npm run build -w plugins/encbird",
     "typecheck": "npm run typecheck -w plugins/encbird",
     "test": "npm run test -w plugins/encbird",
     "validate": "node scripts/validate.mjs",
-    "check": "npm run typecheck && npm run build && npm test && npm run validate"
+    "check": "npm run version:check && npm run typecheck && npm run build && npm test && npm run test:release && npm run validate",
+    "version:check": "node scripts/version.mjs check",
+    "version:bump": "node scripts/version.mjs bump",
+    "version:set": "node scripts/version.mjs set",
+    "hooks:install": "node scripts/install-hooks.mjs",
+    "test:release": "node --test scripts/tests/*.test.mjs",
+    "release:prepare": "node scripts/prepare-release.mjs",
+    "release:check": "node scripts/release-command.mjs check",
+    "release:push": "node scripts/release-command.mjs push",
+    "release:publish": "node scripts/release-command.mjs publish",
+    "tag:push": "bash scripts/push-version.sh"
   },
-  "engines": {"node": ">=22.12.0"}
+  "engines": {
+    "node": ">=22.12.0"
+  }
 }

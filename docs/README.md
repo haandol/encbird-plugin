@@ -3,6 +3,7 @@
 These documents guide agents and maintainers working on the public plugin. End-user installation and usage instructions are in the [Korean user README](../README.md).
 
 - [Development and validation](development.md): Dev Container setup, builds, tests, and distribution files
+- [Versioned release workflow](releases.md): Docker-only preparation, tag pushes, publication and recovery
 - [Remote MCP transport contract](remote-mcp.md): endpoints, OAuth scopes, request ordering, result envelopes, and bounded failures
 - [Plugin runtime and configuration](runtime.md): components, tool calls, account connections, and local settings
 

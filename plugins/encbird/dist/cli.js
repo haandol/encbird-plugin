@@ -22455,6 +22455,40 @@ var StreamableHTTPClientTransport = class {
   }
 };
 
+// package.json
+var package_default = {
+  name: "encbird-learning-plugin",
+  version: "0.1.0",
+  private: true,
+  license: "Apache-2.0",
+  author: "EncBird",
+  description: "EncBird expression learning through a local MCP bridge and browser sign-in.",
+  type: "module",
+  engines: { node: ">=22.12.0" },
+  scripts: {
+    build: "node scripts/build.mjs",
+    typecheck: "tsc --noEmit",
+    test: "tsx --test --test-concurrency=1 test/*.test.ts",
+    start: "node dist/index.js"
+  },
+  dependencies: {
+    "@modelcontextprotocol/sdk": "1.31.0",
+    ajv: "8.20.0",
+    jose: "6.2.12",
+    "proper-lockfile": "4.1.2"
+  },
+  devDependencies: {
+    "@types/node": "24.10.1",
+    "@types/proper-lockfile": "4.1.4",
+    esbuild: "0.28.2",
+    tsx: "4.21.0",
+    typescript: "5.9.3"
+  }
+};
+
+// src/version.ts
+var pluginVersion = package_default.version;
+
 // src/remote.ts
 function remoteMcpUrl(base) {
   return new URL("/mcp", validateBase(base)).href;
@@ -22489,7 +22523,7 @@ function toolEnvelope(result) {
 }
 async function callRemoteTool(base, currentToken, name, args, timeoutMs = 15e3) {
   const endpoint = remoteMcpUrl(base);
-  const client = new Client({ name: "encbird-stdio-bridge", version: "0.1.0" }, { capabilities: {} });
+  const client = new Client({ name: "encbird-stdio-bridge", version: pluginVersion }, { capabilities: {} });
   client.onerror = () => {
   };
   const inFlight = /* @__PURE__ */ new Set();

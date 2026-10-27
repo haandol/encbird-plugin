@@ -1,8 +1,8 @@
 {
   "node": ">=22.12.0",
   "contractsSha256": "5fdbd61302a46252a8d0dacab194e7af2bc1a544c7073c7b70cfe7d3ee1b1149",
-  "bundleSha256": "fb853397ccb805a53589a4266ae16b26e1aa8de5c0d5566a61c67412dbfea0c3",
-  "cliSha256": "ef7b601cc2731a4cb96658e65469d2a1947f72e3fcdff9c1e79666445c3c8f24",
+  "bundleSha256": "4dab464c3c83c286c21b7449caaeaf20f5dfc9bc1a29e6a6ba448eefeb00f16c",
+  "cliSha256": "51c4586eb2bcd4dde131daa21a539c01308e1f130bcec45be6f1cb927e47d2e3",
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.31.0",
     "ajv": "8.20.0",
@@ -334,6 +334,8 @@
     "../../node_modules/eventsource-parser/dist/index.js",
     "../../node_modules/eventsource-parser/dist/stream.js",
     "../../node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js",
+    "package.json",
+    "src/version.ts",
     "src/remote.ts",
     "src/connection.ts",
     "src/auth.ts",

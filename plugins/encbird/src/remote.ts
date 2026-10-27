@@ -7,6 +7,7 @@ import { object, serviceUrl } from './http.js';
 import { apiError } from './api-errors.js';
 import { retryAfterSeconds } from './traffic.js';
 import { readBoundedBody } from './body.js';
+import { pluginVersion } from './version.js';
 
 export function remoteMcpUrl(base: string): string {
   return new URL('/mcp', validateBase(base)).href;
@@ -43,7 +44,7 @@ function toolEnvelope(result: CallToolResult): Record<string, unknown> {
 export async function callRemoteTool(base: string, currentToken: () => Promise<string>, name: string,
   args: Record<string, unknown>, timeoutMs = 15_000): Promise<Record<string, unknown>> {
   const endpoint = remoteMcpUrl(base);
-  const client = new Client({ name: 'encbird-stdio-bridge', version: '0.1.0' }, { capabilities: {} });
+  const client = new Client({ name: 'encbird-stdio-bridge', version: pluginVersion }, { capabilities: {} });
   client.onerror = () => {}; // SDK errors can include remote payloads; only safe errors leave this boundary.
   const inFlight = new Set<Promise<Response>>();
   const performFetch: typeof fetch = async (input, init) => {

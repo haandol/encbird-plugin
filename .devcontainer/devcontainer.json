@@ -1,5 +1,5 @@
 {
-  "name": "EncBird Plugin (Node 24, Alpine)",
+  "name": "EncBird Plugin (Docker release, Node 24)",
   "build": {
     "dockerfile": "Dockerfile"
   },
@@ -24,6 +24,7 @@
       ]
     }
   },
-  "postCreateCommand": "npm ci --ignore-scripts",
-  "shutdownAction": "stopContainer"
+  "postCreateCommand": "sh .devcontainer/post-create.sh",
+  "shutdownAction": "stopContainer",
+  "postStartCommand": "sh .devcontainer/post-start.sh"
 }

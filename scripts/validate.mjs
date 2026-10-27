@@ -3,8 +3,10 @@ import { readFile, access } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import Ajv2020 from 'ajv/dist/2020.js';
 import Ajv from 'ajv';
+import { assertVersions } from './lib/version.mjs';
 
 const root = new URL('../', import.meta.url);
+const version = await assertVersions(root);
 const plugin = new URL('plugins/encbird/', root);
 const json = async (file, base = plugin) => JSON.parse(await readFile(new URL(file, base), 'utf8'));
 const ajv = new Ajv2020({ strict: true });
@@ -17,7 +19,7 @@ const claude = await json('.claude-plugin/plugin.json');
 const portable = await json('plugin.json');
 for (const manifest of [codex, claude, portable]) {
   assert.equal(manifest.name, 'encbird'); assert.equal(manifest.author.name, 'EncBird'); assert.equal(manifest.homepage, 'https://encbird.com');
-  assert.equal(manifest.repository, 'https://github.com/haandol/encbird-plugin'); assert.equal(manifest.version, '0.1.0');
+  assert.equal(manifest.repository, 'https://github.com/haandol/encbird-plugin'); assert.equal(manifest.version, version);
 }
 assert.deepEqual((await json('mcp.json')).mcpServers.encbird.args, ['${PLUGIN_ROOT}/dist/index.js']);
 assert.deepEqual(codex.mcpServers.encbird.args, ['${PLUGIN_ROOT}/dist/index.js']);
