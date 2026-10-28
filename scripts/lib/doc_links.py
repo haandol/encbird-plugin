@@ -176,8 +176,10 @@ def validate_documents(files, exclude_sources=()):
             if target is None:
                 continue
             count += 1
+            if target in names:
+                continue
             directory = target == '.' or any(path.startswith(target.rstrip('/') + '/') for path in names)
-            if target not in names and not directory:
+            if not directory:
                 problems.append({'file': name, 'line': line, 'target': url, 'resolved': target, 'reason': 'missing file target'})
     return {'checked': count, 'problems': problems}
 
