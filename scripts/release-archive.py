@@ -11,6 +11,8 @@ import sys
 import tempfile
 import zipfile
 
+from lib.doc_links import require_document_links
+
 REPO = 'haandol/encbird-plugin'
 ROOT_FILES = {'README.md', 'LICENSE', 'NOTICE', '.agents/plugins/marketplace.json', '.claude-plugin/marketplace.json'}
 PLUGIN_FILES = {'package.json', 'plugin.json', 'mcp.json', '.mcp.json', 'README.md', 'LICENSE', 'NOTICE'}
@@ -175,6 +177,7 @@ def create(root, version, commit, notes_path):
     if not notes.strip():
         fail('Reviewed release notes must not be empty.')
     files = source(root, commit)
+    require_document_links({name: data for name, _, data in files})
     archive = zip_bytes(files)
     digest = sha(archive)
     if commit not in notes:

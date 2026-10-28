@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
+import { publicationCredentialNames } from '../check-source.mjs';
 
 const scripts = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const inside = spawnSync('sh', [join(scripts, 'require-container.sh')]).status === 0;
@@ -38,6 +39,7 @@ def emit(value): print(json.dumps(value))
 state = json.loads(base.read_text()) if base.exists() else None
 if args[:2] == ['auth', 'status']:
     if os.environ.get('TEST_AUTH_FAIL'): sys.exit('authentication failed')
+    if os.environ.get('TEST_REQUIRE_GH_TOKEN') and os.environ.get('GH_TOKEN') != 'fixture-token-never-real': sys.exit('publisher authentication was removed')
 elif args[0] == 'api':
     if option('--hostname') != 'github.com': sys.exit('wrong host')
     endpoint = next(a for a in args if a.startswith('repos/'))
@@ -56,7 +58,8 @@ elif args[0] == 'api':
         emit({'state': status, 'total_count': 0 if status == 'absent' else 1, 'statuses': [] if status == 'absent' else [{'state': status}]})
     elif '/check-runs?' in endpoint:
         result = os.environ.get('TEST_CHECK', 'success')
-        emit({'check_runs': [] if result == 'absent' else [{'status': 'in_progress' if result == 'pending' else 'completed', 'conclusion': result}]})
+        names = json.loads(os.environ.get('TEST_CHECK_NAMES', '["test","build","runtime"]'))
+        emit({'check_runs': [] if result == 'absent' else [{'name': name, 'status': 'in_progress' if result == 'pending' else 'completed', 'conclusion': result} for name in names]})
     elif '/git/tags/' in endpoint:
         oid = endpoint.rsplit('/', 1)[1]
         lines = git('cat-file', 'tag', oid).splitlines()
@@ -67,7 +70,13 @@ elif args[0] == 'api':
         other = json.loads(os.environ.get('TEST_PUBLISHED_RELEASES', '[]'))
         if state and len(state['assets']) == 4:
             other += json.loads(os.environ.get('TEST_PUBLISHED_AFTER_UPLOADS', '[]'))
-        emit(([state] if state else []) + other)
+        hidden = pathlib.Path(str(base) + '.list-hides')
+        remaining = int(hidden.read_text()) if hidden.exists() else 0
+        if state and remaining > 0:
+            hidden.write_text(str(remaining - 1))
+            emit(other)
+        else:
+            emit(([state] if state else []) + other)
     elif endpoint.endswith('/releases/1'):
         if not state: sys.exit('missing release')
         emit(state)
@@ -81,6 +90,7 @@ elif args[0] == 'release':
         if '--draft' not in args or '--verify-tag' not in args: sys.exit('unsafe create')
         state = {'id': 1, 'tag_name': args[2], 'name': option('--title'), 'body': pathlib.Path(option('--notes-file')).read_text(), 'target_commitish': option('--target'), 'draft': True, 'prerelease': False, 'assets': [], 'html_url': 'https://github.com/haandol/encbird-plugin/releases/tag/' + args[2]}
         save(state)
+        pathlib.Path(str(base) + '.list-hides').write_text(os.environ.get('TEST_HIDE_CREATED_LISTS', '0'))
     elif verb == 'upload':
         source = pathlib.Path(args[3]); name = source.name
         if any(a['name'] == name for a in state['assets']): sys.exit('asset exists')
@@ -106,7 +116,7 @@ async function fixture(t, { checkCode = '', prepare = true } = {}) {
   await mkdir(join(root, 'scripts/lib'), { recursive: true }); await mkdir(bin);
   const env = { ...process.env };
   for (const key of Object.keys(env)) {
-    if (/^(GIT_|GH_|GITHUB_|AWS_|NPM_|npm_|NODE_OPTIONS|NODE_PATH|ENCBIRD_)/.test(key)) delete env[key];
+    if (/^(GIT_|GH_|GITHUB_|AWS_|NPM_|npm_|NODE_OPTIONS|NODE_PATH|ENCBIRD_)/.test(key) || publicationCredentialNames.includes(key)) delete env[key];
   }
   Object.assign(env, { GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_TERMINAL_PROMPT: '0',
     TEST_REAL_GIT: execFileSync('which', ['git'], { encoding: 'utf8' }).trim(),
@@ -114,7 +124,7 @@ async function fixture(t, { checkCode = '', prepare = true } = {}) {
     PATH: bin + ':' + process.env.PATH, GH_TOKEN: 'fixture-token-never-real', GITHUB_TOKEN: 'fixture-token-never-real', AWS_SECRET_ACCESS_KEY: 'fixture-secret',
   });
   const git = (...args) => execFileSync(env.TEST_REAL_GIT, args, { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-  for (const name of ['prepare-release.mjs', 'publish-release.sh', 'push-version.sh', 'require-container.sh', 'release-archive.py', 'lib/version.mjs']) {
+  for (const name of ['prepare-release.mjs', 'publish-release.sh', 'push-version.sh', 'require-container.sh', 'release-archive.py', 'verification-policy.json', 'lib/version.mjs', 'lib/__init__.py', 'lib/doc_links.py']) {
     await cp(join(scripts, name), join(root, 'scripts', name));
   }
   const files = {
@@ -156,7 +166,7 @@ ${checkCode}\n`,
   const f = { base, root, env, git, notes, commit: git('rev-parse', 'HEAD') };
   f.run = (script, args, success = true, extraEnv = {}) => {
     const command = script.endsWith('.mjs') ? process.execPath : 'bash';
-    const result = spawnSync(command, [join(root, 'scripts', script), ...args], { cwd: root, env: { ...env, ...extraEnv }, encoding: 'utf8' });
+    const result = spawnSync(command, [join(root, 'scripts', script), ...args], { cwd: root, env: { ...env, ...extraEnv }, encoding: 'utf8', timeout: 30_000 });
     if (success) assert.equal(result.status, 0, result.stdout + result.stderr);
     else assert.notEqual(result.status, 0, result.stdout + result.stderr);
     return result;
@@ -182,6 +192,26 @@ test('host release entrypoints reject before doing any work, even with spoofed e
     });
     assert.notEqual(result.status, 0); assert.match(result.stderr, /devcontainer/);
   }
+});
+
+containerTest('publisher verification drops all publication credentials while the caller retains GitHub authentication',async t=>{
+  const f=await fixture(t);
+  const verifier=join(f.root,'scripts/prepare-release.mjs');
+  const original=(await readFile(verifier,'utf8')).replace(/^#![^\n]*\n/,'');
+  const probe=`import { writeFileSync as recordVerifierEnv } from 'node:fs';
+if(process.argv[2]==='--verify'){
+  const observed=Object.fromEntries(${JSON.stringify(publicationCredentialNames)}.map(name=>[name,Boolean(process.env[name])]));
+  recordVerifierEnv(new URL('../.release/verifier-env.json',import.meta.url),JSON.stringify(observed));
+  if(Object.values(observed).some(Boolean))throw new Error('Publication credentials reached the local verifier');
+}
+`;
+  await writeFile(verifier,'#!/usr/bin/env node\n'+probe+original);
+  const before=f.git('show-ref');
+  const extra=Object.fromEntries(publicationCredentialNames.map(name=>[name,'fixture-token-never-real']));
+  await f.publish('--check',true,{...extra,TEST_REQUIRE_GH_TOKEN:'1',TEST_DENY_WRITES:'1'});
+  assert.deepEqual(await json(join(f.root,'.release/verifier-env.json')),Object.fromEntries(publicationCredentialNames.map(name=>[name,false])));
+  assert.equal(f.git('show-ref'),before);
+  assert.ok((await f.calls()).some(args=>args[0]==='auth'&&args[1]==='status'));
 });
 
 containerTest('prepare is deterministic, source-bound, credential-free, and leaves versions and tags untouched', async t => {
@@ -236,7 +266,7 @@ containerTest('symlink sources and artifact paths are rejected; an existing prep
 
 containerTest('--check performs no local or remote mutations, with or without an annotated tag', async t => {
   const f = await fixture(t);
-  await f.publish('--check', true, { TEST_DENY_WRITES: '1', TEST_CHECK: 'absent', TEST_STATUS: 'absent' });
+  await f.publish('--check', true, { TEST_DENY_WRITES: '1', TEST_STATUS: 'absent' });
   assert.equal(f.git('tag', '--list'), ''); assert.equal(f.git('--git-dir', f.env.TEST_REMOTE, 'tag', '--list'), '');
   f.tag(); f.remoteTag(); await f.publish('--check', true, { TEST_DENY_WRITES: '1' });
   f.run('push-version.sh', ['v0.1.0', '--check'], true, { TEST_DENY_WRITES: '1' });
@@ -280,15 +310,15 @@ containerTest('online repository metadata rejects private, mismatched, or unavai
   await assert.rejects(f.state(), { code: 'ENOENT' });
 });
 
-containerTest('tag push requires source on remote main and successful or absent CI', async t => {
+containerTest('tag push requires source on remote main and all declared CI checks', async t => {
   const f = await fixture(t);
-  for (const extraEnv of [{ TEST_STATUS: 'pending' }, { TEST_STATUS: 'failure' }, { TEST_CHECK: 'pending' }, { TEST_CHECK: 'failure' }, { TEST_API_FAIL: '1' }, { TEST_AUTH_FAIL: '1' }]) {
+  for (const extraEnv of [{ TEST_STATUS: 'pending' }, { TEST_STATUS: 'failure' }, { TEST_CHECK: 'pending' }, { TEST_CHECK: 'failure' }, { TEST_CHECK: 'absent' }, { TEST_CHECK: 'skipped' }, { TEST_CHECK_NAMES: '["test","build"]' }, { TEST_API_FAIL: '1' }, { TEST_AUTH_FAIL: '1' }]) {
     await f.publish('--push', false, extraEnv); assert.equal(f.git('tag', '--list'), '');
   }
   f.git('commit', '--allow-empty', '-m', 'not on remote main'); f.commit = f.git('rev-parse', 'HEAD'); f.prepare();
   await f.publish('--push', false); assert.equal(f.git('tag', '--list'), '');
   f.git('push', f.env.TEST_REMOTE, 'HEAD:refs/heads/main');
-  await f.publish('--push', true, { TEST_STATUS: 'absent', TEST_CHECK: 'absent' });
+  await f.publish('--push', true, { TEST_STATUS: 'absent' });
   assert.equal(f.git('--git-dir', f.env.TEST_REMOTE, 'rev-parse', 'v0.1.0^{}'), f.commit);
 });
 
@@ -458,4 +488,63 @@ containerTest('ZIP provenance rejects changed blobs, extra traversal entries, an
     assert.match((await f.publish('--push', false)).stderr, /ZIP (content|paths|is not)/);
     assert.equal(f.git('tag', '--list'), '');
   }
+});
+
+containerTest('new release preparation rejects missing README and Skill references in the actual package', async t => {
+  for (const [file, body, missing] of [
+    ['README.md', '[Development](docs/development.md)', 'docs/development.md'],
+    ['plugins/encbird/skills/encbird-learning/SKILL.md', '[Privacy](references/privacy.md)', 'references/privacy.md'],
+  ]) {
+    const f = await fixture(t, { prepare: false });
+    await writeFile(join(f.root, file), body);
+    f.git('add', '.'); f.git('commit', '-m', 'missing document reference'); f.commit = f.git('rev-parse', 'HEAD');
+    const result = f.prepare(false);
+    assert.match(result.stderr, /Unresolved document links/);
+    assert.ok(result.stderr.includes(missing));
+    assert.equal(f.git('tag', '--list'), '');
+  }
+});
+
+containerTest('new release preparation accepts included file targets and public documentation URLs', async t => {
+  const f = await fixture(t, { prepare: false });
+  await writeFile(join(f.root, 'README.md'), '[Plugin](plugins/encbird/README.md) [Development](https://github.com/haandol/encbird-plugin/blob/main/docs/development.md)');
+  const reference = join(f.root, 'plugins/encbird/skills/encbird-learning/references/privacy.md');
+  await mkdir(dirname(reference), { recursive: true });
+  await writeFile(reference, '[Skill](../SKILL.md)');
+  await writeFile(join(f.root, 'plugins/encbird/skills/encbird-learning/SKILL.md'), '[Privacy](references/privacy.md)');
+  f.git('add', '.'); f.git('commit', '-m', 'complete packaged documents'); f.commit = f.git('rev-parse', 'HEAD');
+  f.prepare();
+  assert.ok((await json(join(f.folder(), 'manifest.json'))).files.some(item => item.path.endsWith('/references/privacy.md')));
+});
+
+containerTest('a created draft can appear after read-only rechecks without a second create', async t => {
+  const f = await fixture(t);
+  await f.publish('--push');
+  await f.publish('--publish', true, { TEST_HIDE_CREATED_LISTS: '2' });
+  const calls = await f.calls();
+  assert.equal(calls.filter(call => call[0] === 'release' && call[1] === 'create').length, 1);
+  assert.equal(calls.filter(call => call[0] === 'release' && call[1] === 'upload').length, 4);
+  assert.equal((await f.state()).draft, false);
+});
+
+containerTest('a created draft that stays invisible stops with its draft intact and no uploads', async t => {
+  const f = await fixture(t);
+  await f.publish('--push');
+  const result = await f.publish('--publish', false, { TEST_HIDE_CREATED_LISTS: '99' });
+  assert.match(result.stderr, /Draft was not found after create/);
+  const calls = await f.calls();
+  assert.equal(calls.filter(call => call[0] === 'release' && call[1] === 'create').length, 1);
+  assert.equal(calls.filter(call => call[0] === 'release' && ['upload', 'edit'].includes(call[1])).length, 0);
+  assert.equal((await f.state()).draft, true);
+  assert.deepEqual((await f.state()).assets, []);
+});
+
+containerTest('published releases remain verifiable after older CI checks are absent', async t => {
+  const f = await fixture(t);
+  await f.publish('--push');
+  await f.publish('--publish');
+  const before = await f.state();
+  const result = await f.publish('--publish', true, { TEST_CHECK: 'absent', TEST_STATUS: 'absent', TEST_DENY_WRITES: '1' });
+  assert.match(result.stdout, /Already published and verified/);
+  assert.deepEqual(await f.state(), before);
 });

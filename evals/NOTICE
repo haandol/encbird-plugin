@@ -1,0 +1,11 @@
+The Claude Code isolation flags and child process group cleanup in lib/claude.mjs
+are adapted from alps-writer-plugins, commit 24a478a,
+plugins/adr-writer/evals/regression/claude.mjs.
+
+Copyright (c) 2026 haandol. Used under the MIT License reproduced in
+LICENSE.alps-writer. The adaptation adds capability preflight, explicit provider
+selection, bounded visible-output capture, and secret-free diagnostic metadata.
+
+This evaluation code is development tooling. It is not a product runtime
+dependency and must not be included in the EncBird plugin bundles.
+

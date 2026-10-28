@@ -1,0 +1,85 @@
+name: Continuous verification
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verification-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build the project verification image
+        run: docker build --tag encbird-plugin-check .devcontainer
+      - name: Test the committed source without publication credentials
+        run: >-
+          docker run --rm --init --user "$(id -u):$(id -g)"
+          --volume "$GITHUB_WORKSPACE:/workspaces/encbird-plugin"
+          encbird-plugin-check sh -c
+          'npm ci --ignore-scripts --no-audit --no-fund --cache /tmp/npm-cache && npm run check:test -- --committed'
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build the project verification image
+        run: docker build --tag encbird-plugin-check .devcontainer
+      - name: Boot the committed installation, then verify a matching rebuild
+        run: >-
+          docker run --rm --init --user "$(id -u):$(id -g)"
+          --volume "$GITHUB_WORKSPACE:/workspaces/encbird-plugin"
+          encbird-plugin-check sh -c
+          'npm ci --ignore-scripts --no-audit --no-fund --cache /tmp/npm-cache && npm run check:build -- --committed'
+
+  runtime-node:
+    name: runtime (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - node: 22.12.0
+            image: node:22.12.0-alpine
+          - node: '24'
+            image: node:24-alpine3.22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build the same project image for the supported runtime
+        run: docker build --build-arg NODE_IMAGE=${{ matrix.image }} --tag encbird-plugin-runtime .devcontainer
+      - name: Run the committed installation without installing dependencies
+        run: >-
+          docker run --rm --init --user "$(id -u):$(id -g)"
+          --volume "$GITHUB_WORKSPACE:/workspaces/encbird-plugin:ro"
+          encbird-plugin-runtime node scripts/runtime-smoke.mjs --committed
+
+  runtime:
+    name: runtime
+    runs-on: ubuntu-latest
+    needs: runtime-node
+    if: ${{ always() }}
+    timeout-minutes: 2
+    steps:
+      - name: Require every supported runtime
+        env:
+          MATRIX_RESULT: ${{ needs.runtime-node.result }}
+        run: test "$MATRIX_RESULT" = success

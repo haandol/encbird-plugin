@@ -23352,13 +23352,15 @@ var StreamableHTTPClientTransport = class {
 // package.json
 var package_default = {
   name: "encbird-learning-plugin",
-  version: "0.1.0",
+  version: "0.1.1",
   private: true,
   license: "Apache-2.0",
   author: "EncBird",
   description: "EncBird expression learning through a local MCP bridge and browser sign-in.",
   type: "module",
-  engines: { node: ">=22.12.0" },
+  engines: {
+    node: ">=22.12.0"
+  },
   scripts: {
     build: "node scripts/build.mjs",
     typecheck: "tsc --noEmit",
@@ -25720,6 +25722,31 @@ var PluginRuntime = class {
   }
 };
 
+// src/mcp-output.ts
+var errorOutputSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["error"],
+  properties: {
+    error: {
+      type: "object",
+      additionalProperties: false,
+      required: ["code", "message"],
+      properties: {
+        code: { type: "string" },
+        message: { type: "string" },
+        retryAfterSeconds: { type: "integer", minimum: 1, maximum: 86400 }
+      }
+    }
+  }
+};
+function withErrorOutputSchemas(tools) {
+  return tools.map((tool) => !tool.outputSchema ? tool : {
+    ...tool,
+    outputSchema: { type: "object", oneOf: [tool.outputSchema, errorOutputSchema] }
+  });
+}
+
 // src/server.ts
 function createServer2() {
   const server2 = new Server({ name: "encbird", version: pluginVersion }, {
@@ -25727,7 +25754,7 @@ function createServer2() {
     instructions: "Reads return EncBird-generated materials and basic profile only. Memory candidates are intake for EncBird evaluation, not direct memory writes or confirmation; completed processing may produce zero facts. Do not expose memory, fact references, or directly edit profiles from candidates. Use EncBird tools for account data; adapt teaching and explanations to the learner. Sign in through the browser, never request tokens. Reuse relevant results and avoid polling or parallel request loops. Honor retryAfterSeconds. Retry a write only with its original input/key when the error permits it. Report saves only when confirmed. Preserve user approval and learner ratings. Before sending any learning arguments, exclude PII and secrets: identifying names, contact details, exact birth dates or locations, government/account/payment identifiers, health or biometric details, and identifying combinations. Check queries, expressions, answers, candidates, messages and metadata; send only minimum nonidentifying information and required opaque references. Context consent and passing filters do not authorize PII uploads. Do not probe filters with raw PII or disguise it across fields or transports. Generalized observations are host-authored candidates, never actual user messages. Omit unsafe evidence and its references; if an actual answer contains PII, do not submit or rewrite it as the original attempt. Withhold uncertain cases and preserve prior operation inputs/keys without replaying PII. Keep authentication inside the runtime."
   });
   const runtime = new PluginRuntime(() => server2.getClientVersion()?.name ?? "unknown-mcp-client");
-  server2.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: runtime.tools.list() }));
+  server2.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: withErrorOutputSchemas(runtime.tools.list()) }));
   server2.setRequestHandler(CallToolRequestSchema, async (request) => {
     const result = await runtime.call(request.params.name, request.params.arguments);
     return {

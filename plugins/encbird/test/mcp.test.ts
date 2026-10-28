@@ -63,7 +63,7 @@ test('bundled stdio delivers actionable credit failures identically in text and 
   const transport = new StdioClientTransport({ command: process.execPath, args: [resolve('dist/index.js')],
     env: { PATH: process.env.PATH ?? '', ENCBIRD_CREDENTIALS_DIR: m.directory, ENCBIRD_API_BASE_URL: m.base }, stderr: 'pipe' });
   let stderr = ''; transport.stderr?.on('data', data => { stderr += data; });
-  const client = new Client({ name: 'error-host', version: '1.0.0' }); t.after(() => client.close()); await client.connect(transport);
+  const client = new Client({ name: 'error-host', version: '1.0.0' }); t.after(() => client.close()); await client.connect(transport); await client.listTools();
   const args = { phrase: 'take a break', idempotencyKey: 'approved-key', approval: { method: 'credits', creditAmount: 1 } };
   for (const status of [402, 403, 503, 401]) {
     await scoped.withLock(async tx => { const value = (await tx.load())!; delete value.traffic; await tx.save(value); });
@@ -96,7 +96,7 @@ test('bundled stdio preserves structured throttle metadata across process restar
       env: { PATH: process.env.PATH ?? '', ENCBIRD_CREDENTIALS_DIR: m.directory, ENCBIRD_API_BASE_URL: m.base }, stderr: 'pipe' });
     let stderr = ''; transport.stderr?.on('data', data => { stderr += data; });
     const client = new Client({ name: 'pause-host', version: '1.0.0' }); t.after(() => client.close());
-    await client.connect(transport);
+    await client.connect(transport); await client.listTools();
     const result = await client.callTool({ name: 'encbird_add_expression', arguments: { phrase: 'look up', idempotencyKey: 'original' } });
     assert.equal(result.isError, true); assert.deepEqual(JSON.parse((result.content as any)[0].text), result.structuredContent);
     const error = (result.structuredContent as any).error;

@@ -37,6 +37,8 @@ POST requests use `Content-Type: application/json` and `Accept: application/json
 
 Successful tool results contain an EncBird envelope such as `{"data":{"dataSource":"encbird","cefrLevel":"B1"}}` in `structuredContent`; a single JSON text content block is also accepted when structured content is absent. The envelope must pass the tool's output schema. The local MCP response returns matching structured and text JSON. For complete inputs and outputs, use [tools.json](../plugins/encbird/contracts/tools.json) and [serialization examples](../plugins/encbird/contracts/serialization-samples.json).
 
+The local stdio tool list advertises an output schema accepting either the pinned successful data shape or the existing sanitized error envelope. This keeps structured errors valid for clients that cache output validators during tool discovery. Service success data is still checked against the pinned success-only schema; adding the transport error branch does not allow an error-shaped success or extra private fields. Text and structured error content remain identical.
+
 ## Failure, retries and request limits
 
 The shared profile lock spans negotiation, token refresh and the tool result. Each attempted learning HTTP request, including initialization and its notification, consumes the persisted 60-request rolling 60-second budget and is spaced by at least 250 ms. Configuration, browser login and connection cleanup retain their finite lifecycle workflows outside this budget. These are client controls per profile, not service-wide quotas.

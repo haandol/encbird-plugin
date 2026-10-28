@@ -21,14 +21,18 @@ npm ci --ignore-scripts
 npm run check
 ```
 
-The `check` script in the [root package.json](../package.json) checks versions, typechecks/builds, runs runtime and release-tool tests, then validates the distribution:
+When runtime source or contracts change, intentionally run `npm run build`, inspect the generated distribution, and then run `npm run check`. The check boots the current installation before rebuilding and fails if a rebuild changes source or tracked output; it does not silently repair a stale bundle. It accepts working-tree changes for development but does not issue a push receipt.
+
+The [continuous verification guide](continuous-verification.md) covers the same-source push receipt and independent CI jobs. After committing the complete changes, use `npm run check:push` without publication credentials before an authenticated push. Remote CI still runs its own required checks.
+
+The commands in the [root package.json](../package.json) separate these responsibilities:
 
 | Command | Scope |
 | --- | --- |
-| `npm run version:check` / `npm run validate` | Version consistency, configuration, contracts and distribution hashes |
-| `npm run typecheck` / `npm run build` | TypeScript, executable bundles, license notices and build metadata |
-| `npm test` | Runtime behavior against mock OAuth and MCP services |
-| `npm run test:release` | Version, Docker guard, hook and release workflow fixtures; no real publication |
+| `npm run check:test` | Version/type checks, runtime and release fixtures, deterministic behavior-evaluation tests, document links, contracts and distribution hashes |
+| `npm run check:build` / `npm run test:runtime` | The installed MCP and script entry points without development dependencies; build also verifies regeneration leaves source unchanged |
+| `npm run check:push` | Fresh locked dependencies and full verification of clean committed source, followed by a matching local receipt |
+| `npm run eval:skills -- --prepare` | Prepare synthetic behavior cases with no model calls; the report remains NOT RUN |
 
 Type checking and build commands are defined in the [plugin package.json](../plugins/encbird/package.json). Tests live in [test/](../plugins/encbird/test/); distribution checks are implemented in [validate.mjs](../scripts/validate.mjs).
 
@@ -62,6 +66,10 @@ Verify MCP initialization and tool listing first, then call `encbird_connect`, f
 Rebuild and validate after changing runtime source or contracts. `validate` compares recorded bundle and contract hashes, but does not establish whether the bundle was built from the current source. Include the plugin directory's `LICENSE` and `NOTICE` in distribution files.
 
 The MCP and script bundle hashes are both checked. Distribution must include the skill's `scripts/` and `references/` directories. Script tests invoke the installed runner as a separate process against mock HTTP endpoints, including sequential execution, invalid-plan rejection, and persistent cooldowns. Traffic tests also cover concurrent callers, rolling-window admission, MCP negotiation requests, and cooldowns during remote calls. No test sends learning data to the production API.
+
+`npm run validate:docs` checks relative file targets in source Markdown, including inline/reference links, images and HTML links. It ignores code examples and leaves uninstantiated `*.template.md` sources for their generated documents. It does not fetch external URLs or validate fragment anchors. Release preparation repeats file-target checks against the actual packaged file inventory, with no template exemption, so a source-tree-only file cannot satisfy a ZIP link.
+
+The separate [behavior harness](behavior-evaluation.md) records synthetic user phases and real fixture-tool attempts. Its deterministic tests verify the harness, while an actual agent run and optional semantic judge require explicit execution. Neither a mock pass nor a prepared report proves that a live agent follows the learning Skill.
 
 ## Publishing changes
 

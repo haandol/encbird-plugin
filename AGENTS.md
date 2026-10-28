@@ -13,6 +13,7 @@
 - Write agent-facing and maintenance documentation in English, including this `AGENTS.md`, every `SKILL.md`, skill references, and development and runtime documentation under `docs/`. Apply the same language to headings, descriptive metadata, example explanations, and diagram labels.
 - Choose the language by the document's audience, not its filename or whether it is publicly accessible. `docs/README.md` is an English maintenance index; public availability does not make it an end-user guide.
 - Preserve original license texts, legal notices, external source quotations, and exact technical identifiers. Documentation language does not change the language of learner content or the user's conversation.
+- ADR decision bodies and registry summaries follow the maintainer's Korean ADR convention. The shared authoring rules remain in English.
 
 ## Repository ownership and integration
 
@@ -28,7 +29,15 @@
 - Use [Release workflow](docs/releases.md) and the maintained scripts. Keep the plugin version synchronized across packages, lockfile, host manifests and marketplace metadata. The API contract version is independent.
 - Use the current branch's intended upstream for an authorized branch push; specify the destination when it is otherwise ambiguous. Release scripts publish only the verified version tag and release assets for a commit already on remote `main`.
 - Install the repository pre-push guard with `npm run hooks:install`; Dev Container startup also installs it. Preserve existing hooks, signatures and remote protections. Never disable them, use `--no-verify`, force-push, or change environments to bypass an explicit rejection.
+- Run `npm run check:push` on clean committed source without publication credentials before an authenticated push. The guard verifies the matching complete-source receipt; it never runs builds or tests with a publication token. Follow [Continuous verification](docs/continuous-verification.md) for ordinary checks, CI and safe protection rollout.
 - The local guard requires the project Docker marker and rejects host pushes. It is a local workflow control, not GitHub attestation of the operator's machine; do not claim it removes the owner's ability to deliberately bypass local controls.
 - Pass the host's GitHub CLI credential to the container through standard input using `scripts/release-with-token.sh`. Never print it, store it in a file, put it in arguments/remote URLs, or mount the host credential directories. Do not run builds or tests with a real publication token.
 - Verify version, commit, annotated tag, archive contents and checksum, public repository, and applicable remote checks. Reuse identical results after interruption; never overwrite a conflicting tag, release or asset. Wait for publication and verify its actual public state before reporting success.
+- New release preparation checks packaged document targets. New release and tag operations require the checks declared by the selected source commit; absence is not success. Historical published releases remain verifiable against their original bytes. GitHub protection management is plan-only by default and requires existing successful remote workflow evidence before an explicitly authorized apply.
 - Release notes describe user-visible plugin changes in Korean. Never include private service implementation, operational data, credentials or user content. Temporary packages and notes belong in ignored `.release/` output, not source.
+
+## Behavior evaluation
+
+- Keep `evals/` as developer tooling. Preparation, listing, report reading and deterministic tests make no real model calls. A prepared run is not a behavioral pass; live targets and semantic judges require an explicit paid execution choice.
+- Use synthetic conversations and confined fixture tools. Preserve actual visible responses, attempted calls and results; do not infer behavior from self-reported actions or word presence, and do not collect private reasoning or credentials. Keep failed, missing, error and unrun evidence distinct.
+- Follow [Behavior evaluation](docs/behavior-evaluation.md). These checks do not grant permission for real accounts, production learning writes, publication, host configuration changes or provider fallback. Durable delivery requirements live in the [ADR registry](docs/adr/.mapping.json).

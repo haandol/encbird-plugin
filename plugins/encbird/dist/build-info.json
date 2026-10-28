@@ -1,8 +1,8 @@
 {
   "node": ">=22.12.0",
   "contractsSha256": "c252ed38e7754dccf85fdd536c14b69b7a49339acf1c067280e76a8ccb5ab3d9",
-  "bundleSha256": "bf23468b36395ff18222864758c8a0c6b19c7b15c5c88d8b3686298fadbccf86",
-  "cliSha256": "2778618573b79df92061a9d7b4cc8cbda847d6cc104f4a7cf3187c8f23364cae",
+  "bundleSha256": "2f3103358a4a8a6f3ecc009855c073426bcaa705b0b73ccb11426b6c3f8da819",
+  "cliSha256": "e2b951751b528bfd93d7d3295cf4d151ae31b80c70288460d3acfb9760f996cc",
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
     "ajv": "8.20.0",
@@ -380,6 +380,7 @@
     "src/candidates.ts",
     "src/tools.ts",
     "src/runtime.ts",
+    "src/mcp-output.ts",
     "src/server.ts",
     "src/index.ts",
     "src/cli.ts"
