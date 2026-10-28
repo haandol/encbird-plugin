@@ -139,11 +139,13 @@ test('credential relay allows only protection management and removes Node startu
   assert.deepEqual(JSON.parse(result.stdout), { args: ['--plan'], digest: createHash('sha256').update(token).digest('hex'), nodeOptions: null, legacy: null });
 });
 
-test('real protection CLI plans and applies through a controlled GitHub transport only after readiness', { skip: !inContainer }, async t => {
+test('real protection CLI preserves readiness checks under an ESM temporary root', { skip: !inContainer }, async t => {
   const base = await mkdtemp(join(tmpdir(), 'encbird-protection-cli-'));
   t.after(() => rm(base, { recursive: true, force: true }));
   const root = join(base, 'repo'), bin = join(base, 'bin');
   await mkdir(join(root, 'scripts'), { recursive: true }); await mkdir(join(root, '.github/workflows'), { recursive: true }); await mkdir(bin);
+  await writeFile(join(base, 'package.json'), JSON.stringify({ type: 'module' }));
+  await writeFile(join(bin, 'package.json'), JSON.stringify({ type: 'commonjs' }));
   for (const name of ['configure-main-protection.mjs', 'verification-policy.json', 'require-container.sh']) await writeFile(join(root, 'scripts', name), await readFile(resolve('scripts', name)));
   await writeFile(join(root, workflow), 'name: Fixture\n');
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(GIT_|GH_|GITHUB_|NODE_OPTIONS|NODE_PATH)/.test(key)));
