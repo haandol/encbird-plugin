@@ -7,7 +7,7 @@ import { type Credentials, type Grant, type Transaction } from './store.js';
 import { filterExternalInput } from './privacy.js';
 import { createHash } from 'node:crypto';
 import { decodeJwt } from 'jose';
-import { checkRequestBudget, reserveRequest } from './traffic.js';
+import { checkRequestBudget, reserveRequest, startRequestInterval } from './traffic.js';
 import { callRemoteTool } from './remote.js';
 
 export const authenticationPending = () => ({ data: { status: 'authentication_pending', message: 'Finish browser sign-in, then run encbird_connect to check progress; use encbird_disconnect to cancel.' } });
@@ -256,7 +256,12 @@ export class Connection {
     }
   }
   async request(method: string, path: string, body?: unknown) {
-    return this.authenticated({ path, body }, async token => apiRequest(this.base, await token(), method, path, body));
+    return this.authenticated({ path, body }, async token => {
+      const currentToken = await token();
+      const finishInterval = startRequestInterval();
+      try { return await apiRequest(this.base, currentToken, method, path, body); }
+      finally { await finishInterval(); }
+    });
   }
   async callLearningTool(name: string, input: Record<string, unknown>) {
     return this.authenticated({ name, input }, token => callRemoteTool(this.base, token, name, input));

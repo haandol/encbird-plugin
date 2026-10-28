@@ -5,7 +5,7 @@ import { validateBase } from './config.js';
 import { SafeError, uncertainOutcome } from './errors.js';
 import { object, serviceUrl } from './http.js';
 import { apiError } from './api-errors.js';
-import { retryAfterSeconds } from './traffic.js';
+import { retryAfterSeconds, startRequestInterval } from './traffic.js';
 import { readBoundedBody } from './body.js';
 import { pluginVersion } from './version.js';
 
@@ -62,6 +62,7 @@ export async function callRemoteTool(base: string, currentToken: () => Promise<s
     headers.set('authorization', `Bearer ${await currentToken()}`);
     headers.set('accept', 'application/json, text/event-stream');
     headers.set('content-type', 'application/json');
+    const finishInterval = startRequestInterval();
     try {
       const signal = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(init.signal ? [init.signal] : [])]);
       const response = await fetch(endpoint, { ...init, headers, signal, redirect: 'error', credentials: 'omit' });
@@ -106,6 +107,8 @@ export async function callRemoteTool(base: string, currentToken: () => Promise<s
     } catch (error) {
       if (error instanceof SafeError) throw error;
       throw new SafeError('NETWORK_ERROR', `The remote MCP request failed. No fallback or automatic retry was attempted. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
+    } finally {
+      await finishInterval();
     }
   };
   const guardedFetch: typeof fetch = (input, init) => {
