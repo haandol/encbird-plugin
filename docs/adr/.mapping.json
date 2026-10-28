@@ -1,0 +1,15 @@
+{
+  "categories": {
+    "plugin-delivery": {
+      "feature": "Plugin delivery",
+      "adrs": [
+        {
+          "path": "docs/adr/plugin-delivery/0001-verification-boundary.md",
+          "status": "Accepted (2026-10-28)",
+          "summary": "공개 설치본을 소스에 결합한 자동 검사로 검증하고, 컨테이너 발행 권한과 선택적 실제 행동 평가를 분리한다. 준비·오류·미확인과 원래 증거를 보존한다."
+        }
+      ],
+      "dependsOn": []
+    }
+  }
+}

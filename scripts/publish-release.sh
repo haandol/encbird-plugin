@@ -43,7 +43,7 @@ scratch="$(mktemp -d)"
 trap 'rm -rf -- "$scratch"' EXIT
 # Verification reads Git blobs and artifacts only; never expose relay tokens to Node startup hooks.
 (
-    unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN NODE_OPTIONS NODE_PATH
+    unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN NPM_TOKEN NODE_AUTH_TOKEN NODE_OPTIONS NODE_PATH
     node "$scripts/prepare-release.mjs" --verify "$version" "$target" "$expected_checksum"
 ) > "$scratch/manifest.json"
 
@@ -116,6 +116,19 @@ check_main_ci() {
     jq -se 'map(.check_runs) | add | all(.[]; .status == "completed" and (.conclusion == "success" or .conclusion == "neutral" or .conclusion == "skipped"))' \
         "$scratch/checks.json" >/dev/null || fail 'Commit check CI is pending or failed.'
 }
+check_declared_ci() {
+    git show "$target:scripts/verification-policy.json" > "$scratch/verification-policy.json" ||
+        fail 'The source must declare its required verification checks before a new release.'
+    jq -e '.schemaVersion == 1 and (.checks | keys == ["build", "runtime", "test"]) and
+        ([.checks.test, .checks.build, .checks.runtime] | all(.[]; type == "string" and length > 0) and (length == (unique | length)))' \
+        "$scratch/verification-policy.json" >/dev/null || fail 'Invalid source verification policy.'
+    jq -c '[.checks.test, .checks.build, .checks.runtime]' "$scratch/verification-policy.json" > "$scratch/required-checks.json"
+    jq -se --slurpfile expected "$scratch/required-checks.json" '
+        map(.check_runs) | add as $runs |
+        all($expected[0][]; . as $name |
+            any($runs[]; .name == $name and .status == "completed" and .conclusion == "success"))
+        ' "$scratch/checks.json" >/dev/null || fail 'Required test/build/runtime CI has not succeeded for this source commit.'
+}
 check_main_ci
 if [[ "$mode" == --draft || "$mode" == --publish ]]; then
     [[ "$remote_tag" == true ]] || fail 'Push the prepared release tag before --draft/--publish.'
@@ -130,6 +143,16 @@ find_release() {
     if [[ "$count" == 1 ]]; then
         [[ "$release_id" =~ ^[0-9]+$ ]] || fail 'Invalid release ID.'
     fi
+}
+find_created_release() {
+    local attempt
+    # Only reads repeat: a created draft is never recreated after an uncertain list response.
+    for attempt in 1 2 3 4; do
+        find_release
+        if [[ "$count" == 1 ]]; then return; fi
+        if [[ "$attempt" != 4 ]]; then sleep 1; fi
+    done
+    fail 'Draft was not found after create. Keep the prepared artifacts and inspect the tag before retrying.'
 }
 check_newer_release() {
     gh api --hostname github.com --paginate "repos/$repo/releases?per_page=100" |
@@ -188,12 +211,14 @@ if [[ "$count" == 1 ]]; then
     fi
     verify_release true false
 fi
+check_declared_ci
 if [[ "$mode" == --check ]]; then
     printf 'Checks passed. No tags, pushes, or release changes were made.\n'
     exit 0
 fi
 if [[ "$mode" == --push ]]; then
     check_main_ci
+    check_declared_ci
     check_remote_tag
     if [[ "$local_tag" == false ]]; then
         if [[ "$remote_tag" == true ]]; then
@@ -218,8 +243,7 @@ fi
 if [[ "$count" == 0 ]]; then
     gh release create "$tag" --repo "github.com/$repo" --draft --verify-tag \
         --target "$target" --title "$title" --notes-file "$notes"
-    find_release
-    [[ "$count" == 1 ]] || fail 'Draft was not found after create.'
+    find_created_release
 fi
 verify_release true false
 for asset in "${assets[@]}"; do
@@ -230,6 +254,7 @@ done
 verify_release true true
 if [[ "$mode" == --publish ]]; then
     check_main_ci
+    check_declared_ci
     check_remote_tag
     [[ "$remote_tag" == true ]] || fail 'Remote tag disappeared before publication.'
     check_newer_release

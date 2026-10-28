@@ -1,4 +1,5 @@
-FROM node:24-alpine3.22
+ARG NODE_IMAGE=node:24-alpine3.22
+FROM ${NODE_IMAGE}
 
 RUN apk add --no-cache \
         bash \

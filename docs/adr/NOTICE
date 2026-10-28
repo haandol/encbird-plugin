@@ -1,0 +1,7 @@
+The ADR authoring templates in this directory are from
+https://github.com/haandol/alps-writer-plugins (ADR Writer 0.10.14).
+Copyright (c) 2026 haandol. They retain the MIT License in LICENSE.
+
+This attribution covers README.md, concepts.md, authoring-rules.md,
+structure.md, and decision-log.template.md. Project decision records are
+owned by EncBird under the repository license.

@@ -6,7 +6,7 @@ The public destination is `haandol/encbird-plugin`. A release uses a stable `vX.
 
 Open a standalone clone of the public repository with **Dev Containers: Reopen in Container**. The container includes Node, Git, GitHub CLI and archive tools. It mounts only the public checkout and separate dependency/test volumes; host SSH or GitHub credential directories are not mounted. Real learner browser login remains a desktop workflow.
 
-Startup installs a repository pre-push hook and preserves the previous hook and effective `core.hooksPath`. It blocks host pushes and delegates the original hook inside the project container. A custom external hook runner must delegate repository-local hooks; verify that integration rather than disabling security controls. Local guards are operator workflow controls, not server-side proof of Docker execution.
+Startup installs a repository pre-push hook and preserves the previous hook and effective `core.hooksPath`. It blocks host pushes, verifies complete-source checks, and delegates the original hook inside the project container. An authenticated push requires a matching receipt from a separate, credential-free `npm run check:push`; builds and tests never receive a publication token. A custom external hook runner must delegate repository-local hooks. Local guards are operator workflow controls, not server-side proof of Docker execution. See [Continuous verification](continuous-verification.md).
 
 `npm run version:check` verifies all release versions. The root package version, plugin package, lockfile, portable/Codex/Claude manifests and Claude marketplace entry must agree. Runtime version metadata follows the plugin package. The learning API contract has its own version and is not bumped by these commands.
 
@@ -29,13 +29,19 @@ release_commit=$(git rev-parse HEAD)
 npm run release:prepare -- "$release_version" "$release_commit" /tmp/release-notes.md
 ```
 
-Preparation runs the complete checks without publication credentials. It requires clean committed source and stops if a fresh build changes tracked files. Rebuild and commit those changes before trying again. The package retains the marketplace and `plugins/encbird` installation layout, including runtime bundles, skills, contracts and license files. Git metadata, development sources, tests, dependencies and environment files are excluded.
+Preparation runs the complete checks without publication credentials. It requires clean committed source and stops if a fresh build changes tracked files. Rebuild and commit those changes before trying again. The package retains the marketplace and `plugins/encbird` installation layout, including runtime bundles, skills, contracts and license files. Relative file targets in the packaged Markdown must exist in that package. Git metadata, development sources, tests, dependencies and environment files are excluded.
 
 Outputs are kept under `.release/VERSION/COMMIT/`. Keep the ZIP, manifest, checksums and generated release notes together. Record the ZIP SHA-256 printed by preparation. The public source tag must be annotated and point to that exact versioned commit; conflicting tags are never replaced.
 
 ## Push and publish only when requested
 
-First land the source commit on remote `main` through the repository's applicable review path. Make any authorized branch push inside the container, with automatic tag following disabled:
+First land the source commit on remote `main` through the repository's applicable review path. Before passing publication credentials to a Git process, verify the clean commit in a credential-free container process:
+
+```sh
+npm run check:push
+```
+
+Make any authorized branch push inside the container, with automatic tag following disabled:
 
 ```sh
 git -c push.followTags=false push origin main
@@ -51,7 +57,7 @@ npm run release:push -- VERSION FULL_COMMIT_SHA ZIP_SHA256
 npm run release:publish -- VERSION FULL_COMMIT_SHA ZIP_SHA256
 ```
 
-The full publisher verifies or resumes a matching draft, verifies uploaded bytes, and publishes it. It must not report a draft as a completed publication. Conflicting metadata/assets, failed or pending remote checks, and tag/source mismatches stop the operation. An identical already-published release is verified without resetting Latest.
+New release checks and writes require successful `test`, `build`, and `runtime` checks as declared in the exact source commit's verification policy. Missing, pending or skipped required checks are not success. This also applies before main protection is activated. The publisher verifies or resumes a matching draft, verifies uploaded bytes, and publishes it. Conflicting metadata/assets and tag/source mismatches stop the operation. An identical already-published release is verified without resetting Latest or imposing new CI requirements on its historical commit.
 
 Use existing forwarded Git authentication for branch pushes when available. For GitHub Release API calls, pass the host's authenticated `gh` credential through standard input into the selected, trusted project container. Replace the placeholders; do not paste a token into a shell argument:
 
@@ -70,4 +76,6 @@ Run one publisher at a time across containers and machines. The publisher checks
 
 Preserve the same version, commit, package, checksum and notes after interruption. Inspect the remote tag and release before retrying. Do not increment the version to conceal a failed publish, replace assets with `--clobber`, move tags, bypass hooks, or force-push. Preserve artifacts that still need reconciliation.
 
-Release tests use temporary Git repositories and fake GitHub responses. Run them in the project container; host runs may skip container-only cases. A mock run does not establish real account authentication, live service compatibility, branch permissions or a published release. No GitHub Actions workflow or automatic release-on-push is installed by this setup.
+After creating a draft, the publisher makes a bounded sequence of read-only observations if the matching draft is not immediately listed. It does not create the draft again. If it remains unavailable, it stops with the prepared artifacts intact and no uploads; inspect the existing tag and draft before another invocation. Authentication or API failures remain errors and are not treated as an empty release list.
+
+Release tests use temporary Git repositories and fake GitHub responses. Run them in the project container; host runs may skip container-only cases. A mock run does not establish real account authentication, live service compatibility, branch permissions or a published release. CI performs verification only. It does not automatically publish a release, and local source changes do not activate GitHub protection; follow the explicit rollout in [Continuous verification](continuous-verification.md).

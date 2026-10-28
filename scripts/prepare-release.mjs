@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const scripts = dirname(fileURLToPath(import.meta.url));
 const root = resolve(scripts, '..');
 const git = (...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8' }).trim();
-const archive = (...args) => execFileSync('python3', [join(scripts, 'release-archive.py'), ...args], { encoding: 'utf8' }).trim();
+const archive = (...args) => execFileSync('python3', ['-B', join(scripts, 'release-archive.py'), ...args], { encoding: 'utf8' }).trim();
 
 function validateOrigin() {
   const config = (...args) => {
