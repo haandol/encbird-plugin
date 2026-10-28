@@ -34,6 +34,17 @@ export async function reserveRequest(previous?: TrafficState): Promise<TrafficSt
   return state;
 }
 
+export function startRequestInterval(): () => Promise<void> {
+  const until = performance.now() + REQUEST_INTERVAL_MS;
+  return async () => {
+    let remaining = until - performance.now();
+    while (remaining > 0) {
+      await delay(Math.ceil(remaining));
+      remaining = until - performance.now();
+    }
+  };
+}
+
 function waitError(ms: number) {
   return new SafeError('REQUEST_THROTTLED', 'Wait before making another learning request. Do not poll or switch profiles to retry.', Math.max(1, Math.ceil(ms / 1000)));
 }

@@ -19839,6 +19839,16 @@ async function reserveRequest(previous) {
   state.nextRequestAt = now + REQUEST_INTERVAL_MS;
   return state;
 }
+function startRequestInterval() {
+  const until = performance.now() + REQUEST_INTERVAL_MS;
+  return async () => {
+    let remaining = until - performance.now();
+    while (remaining > 0) {
+      await delay(Math.ceil(remaining));
+      remaining = until - performance.now();
+    }
+  };
+}
 function waitError(ms) {
   return new SafeError("REQUEST_THROTTLED", "Wait before making another learning request. Do not poll or switch profiles to retry.", Math.max(1, Math.ceil(ms / 1e3)));
 }
@@ -23437,6 +23447,7 @@ async function callRemoteTool(base, currentToken, name, args, timeoutMs = 15e3) 
     headers.set("authorization", `Bearer ${await currentToken()}`);
     headers.set("accept", "application/json, text/event-stream");
     headers.set("content-type", "application/json");
+    const finishInterval = startRequestInterval();
     try {
       const signal = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...init.signal ? [init.signal] : []]);
       const response = await fetch(endpoint, { ...init, headers, signal, redirect: "error", credentials: "omit" });
@@ -23485,6 +23496,8 @@ async function callRemoteTool(base, currentToken, name, args, timeoutMs = 15e3) 
     } catch (error2) {
       if (error2 instanceof SafeError) throw error2;
       throw new SafeError("NETWORK_ERROR", `The remote MCP request failed. No fallback or automatic retry was attempted. Ask the operator to check service compatibility and connectivity before retrying. ${uncertainOutcome}`);
+    } finally {
+      await finishInterval();
     }
   };
   const guardedFetch = (input, init) => {
@@ -23837,7 +23850,15 @@ var Connection = class {
     }
   }
   async request(method, path, body) {
-    return this.authenticated({ path, body }, async (token) => apiRequest(this.base, await token(), method, path, body));
+    return this.authenticated({ path, body }, async (token) => {
+      const currentToken = await token();
+      const finishInterval = startRequestInterval();
+      try {
+        return await apiRequest(this.base, currentToken, method, path, body);
+      } finally {
+        await finishInterval();
+      }
+    });
   }
   async callLearningTool(name, input) {
     return this.authenticated({ name, input }, (token) => callRemoteTool(this.base, token, name, input));

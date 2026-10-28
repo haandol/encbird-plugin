@@ -1,8 +1,8 @@
 {
   "node": ">=22.12.0",
   "contractsSha256": "c252ed38e7754dccf85fdd536c14b69b7a49339acf1c067280e76a8ccb5ab3d9",
-  "bundleSha256": "2f3103358a4a8a6f3ecc009855c073426bcaa705b0b73ccb11426b6c3f8da819",
-  "cliSha256": "e2b951751b528bfd93d7d3295cf4d151ae31b80c70288460d3acfb9760f996cc",
+  "bundleSha256": "4bd913405465d969af3744d2ff4db014a4b79d6832519a50411d11cb644fa251",
+  "cliSha256": "6dce99d306deb61b10a6c60e097ba1409f4c07542547fc1c5e9869fdb4de5f8a",
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
     "ajv": "8.20.0",

@@ -1,14 +1,50 @@
-import { test } from 'node:test';
+import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { setTimeout as delay } from 'node:timers/promises';
 import { reserveRequest, retryAfterSeconds } from '../src/traffic.js';
 import { apiRequest } from '../src/api.js';
 import { requestJson } from '../src/http.js';
 import { Auth } from '../src/auth.js';
-import { CredentialStore } from '../src/store.js';
+import { CredentialStore, type Transaction } from '../src/store.js';
 import { Secrets, safeError } from '../src/errors.js';
 import { mock } from './helpers.js';
 import { LearningTools } from '../src/tools.js';
+
+function outboundTimes(t: TestContext, endpoint: string) {
+  const times: number[] = [];
+  const originalFetch = globalThis.fetch;
+  t.mock.method(globalThis, 'fetch', (input: string | URL | Request, init?: RequestInit) => {
+    if ((input instanceof Request ? input.url : String(input)) === endpoint) times.push(performance.now());
+    return originalFetch(input, init);
+  });
+  return times;
+}
+
+function assertSpaced(times: number[], count: number) {
+  assert.equal(times.length, count);
+  for (let i = 1; i < times.length; i++) {
+    const gap = times[i]! - times[i - 1]!;
+    assert.ok(gap >= 220, `Outbound request interval was ${gap.toFixed(1)} ms`);
+  }
+}
+
+function delayFirstTrafficSave(t: TestContext, stores: CredentialStore[]) {
+  let injections = 0;
+  for (const store of stores) {
+    const withLock = store.withLock.bind(store);
+    t.mock.method(store, 'withLock', <T>(action: (tx: Transaction) => Promise<T>) => withLock(tx => action({
+      load: tx.load,
+      async save(value) {
+        await tx.save(value);
+        if (!injections && value?.traffic?.recent.length === 1) {
+          injections++; await delay(350);
+        }
+      },
+    })));
+  }
+  return () => injections;
+}
 
 test('Retry-After accepts seconds and HTTP dates, with a safe fallback', () => {
   const now = Date.parse('2026-10-03T00:00:00Z');
@@ -32,12 +68,32 @@ test('rolling request budget rejects bursts without resetting at a minute bounda
 test('different Auth instances share request spacing through the credential lock', async t => {
   const m = await mock(); t.after(() => m.close()); await m.login();
   const second = new Auth(m.base, new CredentialStore(m.base, 'mock-host', m.secrets, m.directory), m.secrets, m.browser);
+  const times = outboundTimes(t, `${m.base}/context`);
   await Promise.all([m.auth.request('GET', '/context'), second.request('GET', '/context')]);
-  const requests = m.requests.filter(r => r.path.endsWith('/context'));
-  assert.equal(requests.length, 2);
-  assert.ok(requests[1]!.at - requests[0]!.at >= 220);
+  assertSpaced(times, 2);
+  assert.equal(m.requests.filter(r => r.path.endsWith('/context')).length, 2);
   assert.equal((await m.read())!.traffic!.recent.length, 2);
 });
+
+for (const status of [200, 500]) {
+  test(`slow credential saves preserve concurrent request spacing after HTTP ${status}`, async t => {
+    const m = await mock(); t.after(() => m.close()); await m.login();
+    const secondStore = new CredentialStore(m.base, 'mock-host', m.secrets, m.directory);
+    const second = new Auth(m.base, secondStore, m.secrets, m.browser);
+    const injected = delayFirstTrafficSave(t, [m.store, secondStore]);
+    const times = outboundTimes(t, `${m.base}/context`);
+    m.flags.apiStatus = status;
+    const results = await Promise.allSettled([m.auth.request('GET', '/context'), second.request('GET', '/context')]);
+    assert.equal(injected(), 1);
+    assertSpaced(times, 2);
+    for (const result of results) {
+      assert.equal(result.status, status === 200 ? 'fulfilled' : 'rejected');
+      if (result.status === 'rejected') assert.equal(safeError(result.reason).error.code, 'API_ERROR');
+    }
+    assert.equal(m.requests.filter(r => r.path.endsWith('/context')).length, 2);
+    assert.equal((await m.read())!.traffic!.recent.length, 2);
+  });
+}
 
 for (const status of [429, 503]) {
   test(`${status} preserves a cooldown across runtime recreation without replaying writes`, async t => {
@@ -103,10 +159,23 @@ for (const status of [429, 503]) {
 
 test('remote MCP negotiation and tool execution share the per-profile HTTP request budget', async t => {
   const m = await mock(); t.after(() => m.close()); await m.login();
+  const times = outboundTimes(t, `${m.origin}/mcp`);
   await new LearningTools().call(m.auth, 'encbird_get_context');
   const requests = m.requests.filter(r => r.path === '/mcp');
   assert.deepEqual(requests.map(r => (r.body as any).method), ['initialize', 'notifications/initialized', 'tools/call']);
-  for (let i = 1; i < requests.length; i++) assert.ok(requests[i]!.at - requests[i - 1]!.at >= 220);
+  assertSpaced(times, 3);
+  assert.equal((await m.read())!.traffic!.recent.length, 3);
+});
+
+test('slow credential saves preserve spacing across remote MCP negotiation and tool execution', async t => {
+  const m = await mock(); t.after(() => m.close()); await m.login();
+  const injected = delayFirstTrafficSave(t, [m.store]);
+  const times = outboundTimes(t, `${m.origin}/mcp`);
+  await new LearningTools().call(m.auth, 'encbird_get_context');
+  assert.equal(injected(), 1);
+  assertSpaced(times, 3);
+  assert.deepEqual(m.requests.filter(r => r.path === '/mcp').map(r => (r.body as any).method),
+    ['initialize', 'notifications/initialized', 'tools/call']);
   assert.equal((await m.read())!.traffic!.recent.length, 3);
 });
 
