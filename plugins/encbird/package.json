@@ -1,12 +1,14 @@
 {
   "name": "encbird-learning-plugin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "license": "Apache-2.0",
   "author": "EncBird",
   "description": "EncBird expression learning through a local MCP bridge and browser sign-in.",
   "type": "module",
-  "engines": {"node": ">=22.12.0"},
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
