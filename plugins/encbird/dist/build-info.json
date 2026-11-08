@@ -2,8 +2,8 @@
   "bun": ">=1.4.2",
   "builtWithBun": "1.4.2",
   "contractsSha256": "c252ed38e7754dccf85fdd536c14b69b7a49339acf1c067280e76a8ccb5ab3d9",
-  "bundleSha256": "5726cd0b9f3f57f9f9b6281ee9c7c9ce6c0ba1707e9f89719edee0a16de0d5e2",
-  "cliSha256": "b2fea845712744aa2ae808b9e65478d7ff8fafeafcf6f59828da059f3ada43cd",
+  "bundleSha256": "23000157595c9308c9a65b5b3c7c541231187fe4f8ea3708802f16cb741eae31",
+  "cliSha256": "3aa448596b38378a8145a7a03129454a7de836b59244a750d90374d264c37895",
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
     "ajv": "8.20.0",

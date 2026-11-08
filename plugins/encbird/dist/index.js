@@ -21184,7 +21184,7 @@ class StreamableHTTPClientTransport {
 // package.json
 var package_default = {
   name: "encbird-learning-plugin",
-  version: "0.1.1",
+  version: "0.2.0",
   private: true,
   license: "Apache-2.0",
   author: "EncBird",
