@@ -82,21 +82,20 @@ test('a dangling static delegation is installed at its repository target and use
   assert.equal(await readlink(join(security,'pre-push')),target);assert.deepEqual(await f.commands(),[]);
 });
 
-test('authenticated Git dispatch removes publication and Node preload credentials before verifier and prior test children', {skip:!container},async t=>{
+test('authenticated Git dispatch removes publication credentials and runtime preloads before verifier and prior test children', {skip:!container},async t=>{
   const f=await fixture(t);const prior=join(f.root,'.git/hooks/pre-push');
-  await writeFile(prior,'#!/bin/sh\ncat >/dev/null\nnpm test\n',{mode:0o755});await chmod(prior,0o755);await f.install();
+  await writeFile(prior,'#!/bin/sh\ncat >/dev/null\nbun run test\n',{mode:0o755});await chmod(prior,0o755);await f.install();
   const verified=f.check(['push']);assert.equal(verified.status,0,verified.stdout+verified.stderr);
   await writeFile(f.log,'');
-  const npmConfig=join(f.base,'npm-user.conf');await writeFile(npmConfig,'');
   const preload=join(f.base,'preload.cjs');const observed=join(f.base,'preload-executed');
   await writeFile(preload,`require('node:fs').writeFileSync(${JSON.stringify(observed)}, 'unexpected preload');\n`);
   const token='synthetic-publication-token-never-log';
-  const env={...Object.fromEntries(publicationCredentialNames.map(name=>[name,token])),NODE_OPTIONS:`--require=${preload}`,NODE_PATH:'/synthetic/preload-path',NPM_CONFIG_USERCONFIG:npmConfig};
+  const env={...Object.fromEntries(publicationCredentialNames.map(name=>[name,token])),NODE_OPTIONS:`--require=${preload}`,NODE_PATH:'/synthetic/preload-path',BUN_OPTIONS:`--preload=${preload}`};
   const result=f.push(updates(f.git('rev-parse','HEAD')),{env});
   assert.equal(result.status,0,result.stdout+result.stderr);
   assert.ok(!result.stdout.includes(token)&&!result.stderr.includes(token));
-  const commands=await f.commands();assert.equal(commands.length,1);assert.deepEqual(commands[0].args,['test']);
-  assert.deepEqual(commands[0].credentials,[]);assert.equal(commands[0].nodeOptions,null);assert.equal(commands[0].nodePath,null);
+  const commands=await f.commands();assert.equal(commands.length,1);assert.deepEqual(commands[0].args,['run','test']);
+  assert.deepEqual(commands[0].credentials,[]);assert.equal(commands[0].nodeOptions,null);assert.equal(commands[0].nodePath,null);assert.equal(commands[0].bunOptions,null);
   await assert.rejects(lstat(observed),{code:'ENOENT'});
   assert.equal(env.GH_TOKEN,token,'The Git caller retains its own publication credentials');
 });
@@ -107,13 +106,13 @@ test('an ordinary token-free push runs exact-source checks before approving its 
   assert.equal(result.status,0,result.stdout+result.stderr);
   assert.equal((await verifyReceipt(f.root)).commit,head);
   const commands=await f.commands();
-  assert.deepEqual(commands[0].args,['ci','--ignore-scripts','--no-audit','--no-fund']);
+  assert.deepEqual(commands[0].args,['install','--frozen-lockfile','--ignore-scripts']);
   assert(commands.some(command=>command.args.includes('test:eval')));
   assert(commands.some(command=>command.args.includes('validate:docs')));
   assert(commands.every(command=>command.credentials.length===0));
 });
 
-test('authenticated pushes reject missing or stale receipts without running npm or leaking the token', {skip:!container}, async t=>{
+test('authenticated pushes reject missing or stale receipts without running Bun commands or leaking the token', {skip:!container}, async t=>{
   const f=await fixture(t);await f.install();
   const secret='ghp_synthetic_present_credential';
   let result=f.push(updates(f.git('rev-parse','HEAD')),{env:{GH_TOKEN:secret}});
@@ -193,7 +192,7 @@ test('upgrading the owned v1 guard preserves its original prior hook',async t=>{
   const previous=join(f.root,'.git/hooks/pre-push.encbird-previous');
   await writeFile(path,'#!/bin/sh\n# EncBird Docker-only pre-push v1\nexit 0\n');
   await writeFile(previous,'previous security hook\n');await f.install();
-  assert.match(await readFile(path,'utf8'),/^#!\/bin\/sh\n# EncBird Docker-only pre-push v3\n/);
+  assert.match(await readFile(path,'utf8'),/^#!\/bin\/sh\n# EncBird Docker-only pre-push v4\n/);
   assert.equal(await readFile(previous,'utf8'),'previous security hook\n');
 });
 

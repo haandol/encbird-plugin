@@ -7,13 +7,13 @@
   "description": "EncBird expression learning through a local MCP bridge and browser sign-in.",
   "type": "module",
   "engines": {
-    "node": ">=22.12.0"
+    "bun": ">=1.4.2"
   },
   "scripts": {
-    "build": "node scripts/build.mjs",
-    "typecheck": "tsc --noEmit",
-    "test": "tsx --test --test-concurrency=1 test/*.test.ts",
-    "start": "node dist/index.js"
+    "build": "bun scripts/build.mjs",
+    "typecheck": "bun run --bun tsc --noEmit",
+    "test": "bun test --max-concurrency 1 --timeout 90000 test/*.test.ts",
+    "start": "bun dist/index.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
@@ -22,10 +22,8 @@
     "proper-lockfile": "4.1.2"
   },
   "devDependencies": {
-    "@types/node": "24.10.1",
+    "@types/bun": "1.4.2",
     "@types/proper-lockfile": "4.1.4",
-    "esbuild": "0.28.2",
-    "tsx": "4.21.0",
     "typescript": "5.9.3"
   }
 }

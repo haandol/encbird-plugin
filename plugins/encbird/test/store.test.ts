@@ -28,7 +28,7 @@ test('cross-process locked updates do not lose writes or expose partial JSON', a
   const m = await mock(); t.after(() => m.close()); await m.login();
   await m.store.withLock(async tx => { const value = (await tx.load())!; value.expiresAt = 0; await tx.save(value); });
   const run = promisify(execFile);
-  await Promise.all(Array.from({ length: 4 }, () => run(process.execPath, ['--import', 'tsx', 'test/lock-worker.ts', m.base, m.directory], { timeout: 15_000 })));
+  await Promise.all(Array.from({ length: 4 }, () => run(process.execPath, ['test/lock-worker.ts', m.base, m.directory], { timeout: 15_000 })));
   assert.equal((await m.read())!.expiresAt, 32);
   assert.deepEqual((await readdir(m.directory)).filter(name => name.endsWith('.lock') || name.endsWith('.tmp')), []);
 });

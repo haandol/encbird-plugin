@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { families } from './cases.mjs';
@@ -8,11 +8,11 @@ import { consoleReport } from './lib/report.mjs';
 const repoRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const help = `EncBird Skill behavior evaluation
 
-  node evals/run.mjs                         Prepare a new immutable NOT RUN report
-  node evals/run.mjs --list                   List synthetic cases; no subprocesses
-  node evals/run.mjs --report RUN_DIR         Verify and read an existing run; no subprocesses
-  node evals/run.mjs [--case ID] [--family NAME] [--output NEW_DIR]
-  node evals/run.mjs --live --cli ABSOLUTE_PATH --model MODEL --provider PROVIDER
+  bun evals/run.mjs                         Prepare a new immutable NOT RUN report
+  bun evals/run.mjs --list                   List synthetic cases; no subprocesses
+  bun evals/run.mjs --report RUN_DIR         Verify and read an existing run; no subprocesses
+  bun evals/run.mjs [--case ID] [--family NAME] [--output NEW_DIR]
+  bun evals/run.mjs --live --cli ABSOLUTE_PATH --model MODEL --provider PROVIDER
       [--judge --judge-cli ABSOLUTE_PATH --judge-model MODEL --judge-provider PROVIDER]
       [--timeout-ms 90000] [--run-timeout-ms 900000] [--max-output-bytes 1048576]
 

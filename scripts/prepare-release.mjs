@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -39,7 +39,7 @@ async function main() {
   const args = process.argv.slice(2);
   const verify = args[0] === '--verify';
   if (verify) args.shift();
-  if (args.length !== 3) throw new Error('Usage: node scripts/prepare-release.mjs VERSION FULL_COMMIT_SHA REVIEWED_NOTES_FILE\n       node scripts/prepare-release.mjs --verify VERSION FULL_COMMIT_SHA ZIP_SHA256');
+  if (args.length !== 3) throw new Error('Usage: bun scripts/prepare-release.mjs VERSION FULL_COMMIT_SHA REVIEWED_NOTES_FILE\n       bun scripts/prepare-release.mjs --verify VERSION FULL_COMMIT_SHA ZIP_SHA256');
   const [version, commit, argument] = args;
   if (!/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(version) || !/^[0-9a-f]{40}$/.test(commit)) {
     throw new Error('Expected stable VERSION and full COMMIT_SHA.');
@@ -60,16 +60,13 @@ async function main() {
     if (await assertVersions(root) !== version) throw new Error('Working tree version differs.');
     const notes = resolve(argument);
     if (!(await readFile(notes, 'utf8')).trim()) throw new Error('Reviewed release notes must not be empty.');
-    await writeFile(join(scratch, 'npm-user.conf'), '');
-    await writeFile(join(scratch, 'npm-global.conf'), '');
-    // Build code receives a token-free environment and isolated npm/XDG configuration.
+    // Build code receives a token-free environment and isolated Bun cache/XDG configuration.
     const env = {
       PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: scratch, LANG: 'C.UTF-8', CI: 'true',
       XDG_CONFIG_HOME: join(scratch, 'config'), XDG_CACHE_HOME: join(scratch, 'cache'),
-      NPM_CONFIG_USERCONFIG: join(scratch, 'npm-user.conf'), NPM_CONFIG_GLOBALCONFIG: join(scratch, 'npm-global.conf'),
-      NPM_CONFIG_CACHE: join(scratch, 'npm-cache'),
+      BUN_INSTALL_CACHE_DIR: join(scratch, 'bun-cache'), BUN_RUNTIME_TRANSPILER_CACHE_PATH: '0', DO_NOT_TRACK: '1',
     };
-    execFileSync('npm', ['run', 'check'], { cwd: root, env, stdio: 'inherit' });
+    execFileSync('bun', ['run', 'check'], { cwd: root, env, stdio: 'inherit' });
     cleanHead(commit, version);
     if (await assertVersions(root) !== version) throw new Error('Build changed the product version.');
     const checksum = archive('create', root, version, commit, notes);

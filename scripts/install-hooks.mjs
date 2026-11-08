@@ -4,8 +4,8 @@ import { mkdir, readFile, writeFile, lstat, rename, chmod, copyFile, realpath, r
 import { basename, dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { publicationCredentialNames } from './check-source.mjs';
-const signature = '# EncBird Docker-only pre-push v3';
-const ownedSignatures = [signature, '# EncBird Docker-only pre-push v2', '# EncBird Docker-only pre-push v1'];
+const signature = '# EncBird Docker-only pre-push v4';
+const ownedSignatures = [signature, '# EncBird Docker-only pre-push v3', '# EncBird Docker-only pre-push v2', '# EncBird Docker-only pre-push v1'];
 const git = (...args) => execFileSync('git', args, {encoding:'utf8'}).trim();
 const root = git('rev-parse', '--show-toplevel');
 if (await realpath(root) !== await realpath(fileURLToPath(new URL('../', import.meta.url)))) {
@@ -47,7 +47,7 @@ try {
   }
 } catch (error) { if (error.code !== 'ENOENT') throw error; }
 const credentialPresence = publicationCredentialNames.map(name => '${' + name + ':+x}').join('');
-const childSecrets = [...publicationCredentialNames, 'NODE_OPTIONS', 'NODE_PATH'].join(' ');
+const childSecrets = [...publicationCredentialNames, 'NODE_OPTIONS', 'NODE_PATH', 'BUN_OPTIONS'].join(' ');
 const script = `#!/bin/sh
 ${signature}
 set -eu
@@ -66,7 +66,7 @@ trap 'exit 1' HUP INT TERM
 cat > "$refs"
 verify_source() (
     unset ${childSecrets}
-    node "$root/scripts/pre-push.mjs" "$@" < "$refs"
+    bun --no-env-file "$root/scripts/pre-push.mjs" "$@" < "$refs"
 )
 if [ -n "${credentialPresence}" ]; then
     verify_source --receipt-only "$@"

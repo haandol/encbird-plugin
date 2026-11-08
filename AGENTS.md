@@ -15,6 +15,11 @@
 - Preserve original license texts, legal notices, external source quotations, and exact technical identifiers. Documentation language does not change the language of learner content or the user's conversation.
 - ADR decision bodies and registry summaries follow the maintainer's Korean ADR convention. The shared authoring rules remain in English.
 
+## Runtime
+
+- The installed plugin, development tooling and verification run on Bun only; Node.js, npm, tsx and esbuild are not part of the toolchain. Use the exact `.bun-version` for builds and checks. Bun runs compatible `node:` standard-library modules.
+- Hosts launch the bridge with `--no-env-file` and the plugin-owned `bunfig.toml`, so a project's `.env` or `bunfig.toml` cannot change it. Keep that launch form in every host manifest and in documented script commands. The runtime requirement is owned by the [plugin delivery ADR](docs/adr/plugin-delivery/0001-verification-boundary.md).
+
 ## Repository ownership and integration
 
 - This public repository owns the plugin source, skills, distribution files, versions and releases. EncBird service implementation stays outside it. Keep public API contracts sufficient for client development without copying private implementation or review metadata.
@@ -28,8 +33,8 @@
 - Setup and preparation do not authorize publication. Follow the user's requested action level; a configuration-only request must not bump the real version, create a real release tag, push, or publish. Ordinary branch pushes do not publish releases.
 - Use [Release workflow](docs/releases.md) and the maintained scripts. Keep the plugin version synchronized across packages, lockfile, host manifests and marketplace metadata. The API contract version is independent.
 - Use the current branch's intended upstream for an authorized branch push; specify the destination when it is otherwise ambiguous. Release scripts publish only the verified version tag and release assets for a commit already on remote `main`.
-- Install the repository pre-push guard with `npm run hooks:install`; Dev Container startup also installs it. Preserve existing hooks, signatures and remote protections. Never disable them, use `--no-verify`, force-push, or change environments to bypass an explicit rejection.
-- Run `npm run check:push` on clean committed source without publication credentials before an authenticated push. The guard verifies the matching complete-source receipt; it never runs builds or tests with a publication token. Follow [Continuous verification](docs/continuous-verification.md) for ordinary checks, CI and safe protection rollout.
+- Install the repository pre-push guard with `bun run hooks:install`; Dev Container startup also installs it. Preserve existing hooks, signatures and remote protections. Never disable them, use `--no-verify`, force-push, or change environments to bypass an explicit rejection.
+- Run `bun run check:push` on clean committed source without publication credentials before an authenticated push. The guard verifies the matching complete-source receipt; it never runs builds or tests with a publication token. Follow [Continuous verification](docs/continuous-verification.md) for ordinary checks, CI and safe protection rollout.
 - The local guard requires the project Docker marker and rejects host pushes. It is a local workflow control, not GitHub attestation of the operator's machine; do not claim it removes the owner's ability to deliberately bypass local controls.
 - Pass the host's GitHub CLI credential to the container through standard input using `scripts/release-with-token.sh`. Never print it, store it in a file, put it in arguments/remote URLs, or mount the host credential directories. Do not run builds or tests with a real publication token.
 - Verify version, commit, annotated tag, archive contents and checksum, public repository, and applicable remote checks. Reuse identical results after interruption; never overwrite a conflicting tag, release or asset. Wait for publication and verify its actual public state before reporting success.

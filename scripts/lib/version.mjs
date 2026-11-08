@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const files = [
   'package.json',
   'plugins/encbird/package.json',
-  'package-lock.json',
+  'bun.lock',
   'plugins/encbird/plugin.json',
   'plugins/encbird/.codex-plugin/plugin.json',
   'plugins/encbird/.claude-plugin/plugin.json',
@@ -35,7 +35,8 @@ async function document(root, file) {
   const path = join(root instanceof URL ? fileURLToPath(root) : root, file);
   const original = await readFile(path, 'utf8');
   let data;
-  try { data = JSON.parse(original); }
+  // Bun writes its text lockfile as JSONC; every other version file is strict JSON.
+  try { data = file === 'bun.lock' ? Bun.JSONC.parse(original) : JSON.parse(original); }
   catch { throw new Error(`${file} must contain valid JSON.`); }
   object(data, file);
   return { file, path, original, data };
@@ -48,13 +49,22 @@ function targets({ file, data }) {
     if (matches.length !== 1) throw new Error(`${file} must contain exactly one encbird plugin.`);
     return [target(matches[0], `${file}.plugins[encbird]`)];
   }
-  const selected = [target(data, file)];
-  if (file === 'package-lock.json') {
-    const packages = object(data.packages, `${file}.packages`);
-    selected.push(target(packages[''], `${file}.packages[""]`));
-    selected.push(target(packages['plugins/encbird'], `${file}.packages["plugins/encbird"]`));
+  if (file === 'bun.lock') {
+    const workspaces = object(data.workspaces, `${file}.workspaces`);
+    object(workspaces[''], `${file}.workspaces[""]`);
+    return [target(workspaces['plugins/encbird'], `${file}.workspaces["plugins/encbird"]`)];
   }
-  return selected;
+  return [target(data, file)];
+}
+
+// Rewrite only the plugin workspace version so Bun's lockfile formatting stays byte-stable.
+function lockfileText({ file, original, data }, next) {
+  const pattern = /("plugins\/encbird"\s*:\s*\{[^{}]*?"version"\s*:\s*")([^"]*)(")/g;
+  const matches = [...original.matchAll(pattern)];
+  if (matches.length !== 1) throw new Error(`${file} must contain exactly one plugins/encbird workspace version.`);
+  const updated = original.replace(pattern, (_, before, _version, after) => `${before}${next}${after}`);
+  if (!Bun.deepEquals(Bun.JSONC.parse(updated), data, true)) throw new Error(`${file} could not be updated without changing other lockfile data.`);
+  return updated;
 }
 
 async function snapshot(root) {
@@ -97,7 +107,7 @@ export async function updateVersion(root, next) {
   if (next === version) return version;
   const updates = documents.map(entry => {
     for (const selected of entry.targets) selected.value.version = next;
-    return { ...entry, updated: JSON.stringify(entry.data, null, 2) + '\n' };
+    return { ...entry, updated: entry.file === 'bun.lock' ? lockfileText(entry, next) : JSON.stringify(entry.data, null, 2) + '\n' };
   });
   // Recheck every input before writing so edits made during validation are not overwritten.
   for (const entry of updates) {

@@ -1,0 +1,3 @@
+# Plugin-owned Bun configuration. Launch commands select this file so a project
+# bunfig.toml or .env in the host working directory cannot change the plugin.
+env = false

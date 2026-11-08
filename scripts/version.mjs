@@ -1,7 +1,7 @@
 import { assertVersions, bumpVersion, updateVersion } from './lib/version.mjs';
 
 const root = new URL('../', import.meta.url);
-const usage = 'Usage: node scripts/version.mjs check | bump [patch|minor|major] | set X.Y.Z';
+const usage = 'Usage: bun scripts/version.mjs check | bump [patch|minor|major] | set X.Y.Z';
 
 try {
   const [command, value, ...extra] = process.argv.slice(2);

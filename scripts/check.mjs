@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
@@ -17,16 +17,16 @@ async function main() {
   const modes = args.filter(arg => arg !== '--committed');
   const mode = modes[0] ?? 'all';
   if (modes.length > 1 || !['all', 'test', 'build', 'push'].includes(mode) || args.filter(arg => arg === '--committed').length > 1) {
-    throw new Error('Usage: node scripts/check.mjs [test|build|push] [--committed]');
+    throw new Error('Usage: bun scripts/check.mjs [test|build|push] [--committed]');
   }
   const before = await sourceState(root);
   const committed = mode === 'push' || committedOnly ? await requireCommittedSource(root, before) : null;
   if (mode === 'push') await removeReceipt(root, before.head);
   const isolated = await verificationEnvironment();
   const run = async (...command) => {
-    console.log(`Verification: npm ${command.join(' ')}`);
-    const result = spawnSync('npm', command, { cwd: root, env: isolated.env, stdio: 'inherit', timeout: 10 * 60_000, killSignal: 'SIGKILL' });
-    if (result.error || result.status !== 0) throw new Error(`npm ${command.join(' ')} failed (${result.error?.code ?? result.status}).`);
+    console.log(`Verification: bun ${command.join(' ')}`);
+    const result = spawnSync('bun', command, { cwd: root, env: isolated.env, stdio: 'inherit', timeout: 10 * 60_000, killSignal: 'SIGKILL' });
+    if (result.error || result.status !== 0) throw new Error(`bun ${command.join(' ')} failed (${result.error?.code ?? result.status}).`);
     assertUnchanged(before, await sourceState(root));
   };
   try {
@@ -35,7 +35,7 @@ async function main() {
       await smokeInstalledPlugin(root, { env: isolated.env });
       assertUnchanged(before, await sourceState(root));
     }
-    if (mode === 'push') await run('ci', '--ignore-scripts', '--no-audit', '--no-fund');
+    if (mode === 'push') await run('install', '--frozen-lockfile', '--ignore-scripts');
     if (mode !== 'build') {
       await run('run', 'version:check');
       await run('run', 'typecheck');

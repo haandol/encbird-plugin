@@ -7,7 +7,7 @@ runner=bash
 case "${1:-}" in
     publish) shift; command=publish-release.sh ;;
     push-version) shift; command=push-version.sh ;;
-    protect-main) shift; runner=node; command=configure-main-protection.mjs ;;
+    protect-main) shift; runner=bun; command=configure-main-protection.mjs ;;
     *) printf '%s\n' 'Usage: release-with-token.sh publish|push-version|protect-main ARGS...' >&2; exit 2 ;;
 esac
 if [ -t 0 ]; then
@@ -18,5 +18,5 @@ if ! IFS= read -r GH_TOKEN || [ -z "$GH_TOKEN" ]; then printf '%s\n' 'No GitHub 
 fi
 export GH_TOKEN
 export GH_HOST=github.com GIT_TERMINAL_PROMPT=0
-unset GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN GH_DEBUG GIT_TRACE GIT_TRACE_CURL GIT_CURL_VERBOSE NODE_OPTIONS NODE_PATH
+unset GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN GH_DEBUG GIT_TRACE GIT_TRACE_CURL GIT_CURL_VERBOSE NODE_OPTIONS NODE_PATH BUN_OPTIONS
 exec "$runner" "$root/scripts/$command" "$@"

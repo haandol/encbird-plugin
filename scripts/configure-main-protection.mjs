@@ -166,7 +166,7 @@ function liveIO() {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const args = process.argv.slice(2);
-    if (args.length > 1 || (args.length && !['--plan', '--apply', '--help'].includes(args[0]))) throw new Error('Usage: npm run ci:protect -- [--plan|--apply]');
+    if (args.length > 1 || (args.length && !['--plan', '--apply', '--help'].includes(args[0]))) throw new Error('Usage: bun run ci:protect [--plan|--apply]');
     if (args[0] === '--help') {
       console.log('Plan main verification protection by default. --apply requires the project container, a clean commit on remote main, matching CI workflow, and successful test/build/runtime jobs. Existing differing rulesets are never replaced. No push, release or test runs occur.');
     } else {

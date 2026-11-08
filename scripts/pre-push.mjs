@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -31,7 +31,7 @@ async function main() {
   for (const update of updates) {
     const commit = git(root, 'rev-parse', '--verify', `${update.localOid}^{commit}`);
     if (commit !== before.head) {
-      throw new Error(`Push ref ${update.localRef} resolves to ${commit}, but the checked-out commit is ${before.head}. Verify that exact commit in its own container checkout with npm run check:push, then push from there. Multiple refs must all resolve to the current checked commit.`);
+      throw new Error(`Push ref ${update.localRef} resolves to ${commit}, but the checked-out commit is ${before.head}. Verify that exact commit in its own container checkout with bun run check:push, then push from there. Multiple refs must all resolve to the current checked commit.`);
     }
   }
   try { await verifyReceipt(root, before); }

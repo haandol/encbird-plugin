@@ -1,5 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { CallToolResultSchema, McpError, type CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { validateBase } from './config.js';
 import { SafeError, uncertainOutcome } from './errors.js';
@@ -48,7 +49,7 @@ export async function callRemoteTool(base: string, currentToken: () => Promise<s
   const client = new Client({ name: 'encbird-stdio-bridge', version: pluginVersion }, { capabilities: {} });
   client.onerror = () => {}; // SDK errors can include remote payloads; only safe errors leave this boundary.
   const inFlight = new Set<Promise<Response>>();
-  const performFetch: typeof fetch = async (input, init) => {
+  const performFetch: FetchLike = async (input, init) => {
     if (serviceUrl(input instanceof Request ? input.url : String(input)).href !== endpoint) {
       throw new SafeError('INVALID_ROUTE', 'MCP requests must use the configured EncBird endpoint.');
     }
@@ -111,7 +112,7 @@ export async function callRemoteTool(base: string, currentToken: () => Promise<s
       await finishInterval();
     }
   };
-  const guardedFetch: typeof fetch = (input, init) => {
+  const guardedFetch: FetchLike = (input, init) => {
     const request = performFetch(input, init);
     inFlight.add(request);
     void request.finally(() => inFlight.delete(request)).catch(() => {});

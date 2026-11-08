@@ -116,7 +116,7 @@ async function fixture(t, { checkCode = '', prepare = true } = {}) {
   await mkdir(join(root, 'scripts/lib'), { recursive: true }); await mkdir(bin);
   const env = { ...process.env };
   for (const key of Object.keys(env)) {
-    if (/^(GIT_|GH_|GITHUB_|AWS_|NPM_|npm_|NODE_OPTIONS|NODE_PATH|ENCBIRD_)/.test(key) || publicationCredentialNames.includes(key)) delete env[key];
+    if (/^(GIT_|GH_|GITHUB_|AWS_|NPM_|npm_|NODE_OPTIONS|NODE_PATH|BUN_OPTIONS|ENCBIRD_)/.test(key) || publicationCredentialNames.includes(key)) delete env[key];
   }
   Object.assign(env, { GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_TERMINAL_PROMPT: '0',
     TEST_REAL_GIT: execFileSync('which', ['git'], { encoding: 'utf8' }).trim(),
@@ -128,8 +128,8 @@ async function fixture(t, { checkCode = '', prepare = true } = {}) {
     await cp(join(scripts, name), join(root, 'scripts', name));
   }
   const files = {
-    'package.json': JSON.stringify({ name: 'release-fixture', version: '0.1.0', scripts: { check: 'node check.cjs' }, private: true }),
-    'package-lock.json': JSON.stringify({ version: '0.1.0', packages: { '': { version: '0.1.0' }, 'plugins/encbird': { version: '0.1.0' } } }),
+    'package.json': JSON.stringify({ name: 'release-fixture', version: '0.1.0', scripts: { check: 'bun check.cjs' }, private: true }),
+    'bun.lock': '{\n  "lockfileVersion": 1,\n  "workspaces": {\n    "": { "name": "release-fixture", },\n    "plugins/encbird": { "name": "encbird", "version": "0.1.0", },\n  },\n}\n',
     'plugins/encbird/package.json': JSON.stringify({ name: 'encbird', version: '0.1.0' }),
     'plugins/encbird/plugin.json': JSON.stringify({ name: 'encbird', version: '0.1.0' }),
     'plugins/encbird/.codex-plugin/plugin.json': JSON.stringify({ name: 'encbird', version: '0.1.0' }),
@@ -138,7 +138,7 @@ async function fixture(t, { checkCode = '', prepare = true } = {}) {
     '.agents/plugins/marketplace.json': JSON.stringify({ plugins: [{ name: 'encbird', source: { path: './plugins/encbird' } }] }),
     'README.md': 'Fixture root readme\n', LICENSE: 'Fixture license\n', NOTICE: 'Fixture notice\n',
     'plugins/encbird/README.md': 'Fixture plugin\n', 'plugins/encbird/LICENSE': 'Fixture license\n', 'plugins/encbird/NOTICE': 'Fixture notice\n',
-    'plugins/encbird/mcp.json': '{}\n', 'plugins/encbird/.mcp.json': '{}\n',
+    'plugins/encbird/mcp.json': '{}\n', 'plugins/encbird/.mcp.json': '{}\n', 'plugins/encbird/bunfig.toml': 'env = false\n',
     'plugins/encbird/dist/index.js': 'console.log("committed bundle");\n', 'plugins/encbird/dist/cli.js': 'console.log("CLI");\n',
     'plugins/encbird/dist/build-info.json': '{}\n', 'plugins/encbird/dist/THIRD_PARTY_LICENSES.txt': 'Fixture licenses\n',
     'plugins/encbird/assets/icon.png': 'fixture bytes', 'plugins/encbird/skills/encbird-learning/SKILL.md': 'Fixture skill\n',
@@ -149,7 +149,7 @@ async function fixture(t, { checkCode = '', prepare = true } = {}) {
     'plugins/encbird/assets/env/development.env': 'EXCLUDED_FIXTURE=1\n',
     '.gitignore': '.release/\n.check-env.json\nnode_modules/\n.env*\n',
     'check.cjs': `const fs = require('node:fs');
-if (Object.keys(process.env).some(k => /^(GH_TOKEN|GITHUB_TOKEN|GH_ENTERPRISE_TOKEN|GITHUB_ENTERPRISE_TOKEN|AWS_|TEST_|NODE_OPTIONS)/.test(k))) throw Error('credentials leaked');
+if (Object.keys(process.env).some(k => /^(GH_TOKEN|GITHUB_TOKEN|GH_ENTERPRISE_TOKEN|GITHUB_ENTERPRISE_TOKEN|AWS_|TEST_|NODE_OPTIONS|BUN_OPTIONS)/.test(k))) throw Error('credentials leaked');
 fs.writeFileSync('.check-env.json', JSON.stringify({home: process.env.HOME}));
 ${checkCode}\n`,
   };
@@ -205,7 +205,7 @@ if(process.argv[2]==='--verify'){
   if(Object.values(observed).some(Boolean))throw new Error('Publication credentials reached the local verifier');
 }
 `;
-  await writeFile(verifier,'#!/usr/bin/env node\n'+probe+original);
+  await writeFile(verifier,'#!/usr/bin/env bun\n'+probe+original);
   const before=f.git('show-ref');
   const extra=Object.fromEntries(publicationCredentialNames.map(name=>[name,'fixture-token-never-real']));
   await f.publish('--check',true,{...extra,TEST_REQUIRE_GH_TOKEN:'1',TEST_DENY_WRITES:'1'});

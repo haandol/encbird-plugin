@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 export const publicationCredentialNames = [
   'GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN',
-  'NPM_TOKEN', 'NODE_AUTH_TOKEN',
+  'NPM_TOKEN', 'NPM_CONFIG_TOKEN', 'NODE_AUTH_TOKEN',
 ];
 
 export function hasPublicationCredentials(env = process.env) {
@@ -16,7 +16,7 @@ export function hasPublicationCredentials(env = process.env) {
 
 export function requireNoPublicationCredentials(env = process.env) {
   if (hasPublicationCredentials(env)) {
-    throw new Error('Publication credentials are present. Run npm run check:push in a separate credential-free container command before the authenticated push; no tests or builds were started.');
+    throw new Error('Publication credentials are present. Run bun run check:push in a separate credential-free container command before the authenticated push; no tests or builds were started.');
   }
 }
 
@@ -88,23 +88,18 @@ export async function requireCommittedSource(root, state) {
   state ??= await sourceState(root);
   const committed = committedState(root, state.head);
   if (state.digest !== committed.digest) {
-    throw new Error('Push/CI verification requires clean committed source, including untracked files and executable modes. Review and commit the intended files, then run npm run check:push without credentials. Use npm run check for an uncommitted working tree.');
+    throw new Error('Push/CI verification requires clean committed source, including untracked files and executable modes. Review and commit the intended files, then run bun run check:push without credentials. Use bun run check for an uncommitted working tree.');
   }
   return committed;
 }
 
 export async function verificationEnvironment() {
   const scratch = await mkdtemp(join(tmpdir(), 'encbird-check-env-'));
-  const userConfig = join(scratch, 'npm-user.conf');
-  const globalConfig = join(scratch, 'npm-global.conf');
-  await writeFile(userConfig, '');
-  await writeFile(globalConfig, '');
   return {
     env: {
       PATH: process.env.PATH, HOME: process.env.HOME, LANG: 'C.UTF-8', CI: 'true', TMPDIR: scratch,
       XDG_CONFIG_HOME: join(scratch, 'config'), XDG_CACHE_HOME: join(scratch, 'cache'),
-      NPM_CONFIG_USERCONFIG: userConfig, NPM_CONFIG_GLOBALCONFIG: globalConfig,
-      NPM_CONFIG_CACHE: join(scratch, 'npm-cache'), NPM_CONFIG_UPDATE_NOTIFIER: 'false',
+      BUN_INSTALL_CACHE_DIR: join(scratch, 'bun-cache'), BUN_RUNTIME_TRANSPILER_CACHE_PATH: '0', DO_NOT_TRACK: '1',
     },
     cleanup: () => rm(scratch, { recursive: true, force: true }),
   };
@@ -124,9 +119,9 @@ export async function writeReceipt(root, committed) {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   const temporary = `${path}.${process.pid}.tmp`;
   const receipt = {
-    schemaVersion: 1, command: 'npm run check:push', commit: committed.head,
+    schemaVersion: 2, command: 'bun run check:push', commit: committed.head,
     tree: committed.tree, sourceSha256: committed.digest,
-    node: process.versions.node, checkedAt: new Date().toISOString(),
+    bun: Bun.version, checkedAt: new Date().toISOString(),
   };
   try {
     await writeFile(temporary, JSON.stringify(receipt, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
@@ -144,12 +139,12 @@ export async function verifyReceipt(root, state) {
     const path = receiptPath(root, committed.head);
     if (!(await lstat(path)).isFile()) throw new Error('Receipt is not a regular file.');
     const receipt = JSON.parse(await readFile(path, 'utf8'));
-    if (receipt.schemaVersion !== 1 || receipt.command !== 'npm run check:push' ||
+    if (receipt.schemaVersion !== 2 || receipt.command !== 'bun run check:push' ||
         receipt.commit !== committed.head || receipt.tree !== committed.tree || receipt.sourceSha256 !== committed.digest) {
       throw new Error('Receipt does not match this complete source.');
     }
     return receipt;
   } catch {
-    throw new Error(`No matching verification receipt for ${committed.head}. Run npm run check:push in a separate credential-free command inside this project's container, then retry the same push. The authenticated source verifier never runs npm, tests, or builds.`);
+    throw new Error(`No matching verification receipt for ${committed.head}. Run bun run check:push in a separate credential-free command inside this project's container, then retry the same push. The authenticated source verifier never installs dependencies or runs tests or builds.`);
   }
 }

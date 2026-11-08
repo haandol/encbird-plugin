@@ -1,0 +1,2 @@
+# Development and verification commands never read a local .env file implicitly.
+env = false

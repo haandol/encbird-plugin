@@ -124,19 +124,19 @@ test('post-create verification failure reports the created ID without another mu
 });
 
 const inContainer = spawnSync('sh', [resolve('scripts/require-container.sh')]).status === 0;
-test('credential relay allows only protection management and removes Node startup hooks', { skip: !inContainer }, async t => {
+test('credential relay allows only protection management and removes runtime startup hooks', { skip: !inContainer }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'encbird-protection-relay-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const scripts = join(root, 'scripts'); await mkdir(scripts);
   for (const name of ['require-container.sh', 'release-with-token.sh']) await writeFile(join(scripts, name), await readFile(resolve('scripts', name)));
-  await writeFile(join(scripts, 'configure-main-protection.mjs'), "import {createHash} from 'node:crypto'; console.log(JSON.stringify({args:process.argv.slice(2),digest:createHash('sha256').update(process.env.GH_TOKEN).digest('hex'),nodeOptions:process.env.NODE_OPTIONS??null,legacy:process.env.GITHUB_TOKEN??null}));");
+  await writeFile(join(scripts, 'configure-main-protection.mjs'), "import {createHash} from 'node:crypto'; console.log(JSON.stringify({args:process.argv.slice(2),digest:createHash('sha256').update(process.env.GH_TOKEN).digest('hex'),nodeOptions:process.env.NODE_OPTIONS??null,bunOptions:process.env.BUN_OPTIONS??null,legacy:process.env.GITHUB_TOKEN??null}));");
   const token = 'synthetic-protection-credential';
   const result = spawnSync('sh', [join(scripts, 'release-with-token.sh'), 'protect-main', '--plan'], {
-    encoding: 'utf8', input: token + '\n', env: { ...process.env, NODE_OPTIONS: '--require /missing-startup-hook', GITHUB_TOKEN: 'unrelated-fixture' },
+    encoding: 'utf8', input: token + '\n', env: { ...process.env, NODE_OPTIONS: '--require /missing-startup-hook', BUN_OPTIONS: '--preload=/missing-startup-hook', GITHUB_TOKEN: 'unrelated-fixture' },
   });
   assert.equal(result.status, 0, result.stderr);
   assert.ok(!result.stdout.includes(token));
-  assert.deepEqual(JSON.parse(result.stdout), { args: ['--plan'], digest: createHash('sha256').update(token).digest('hex'), nodeOptions: null, legacy: null });
+  assert.deepEqual(JSON.parse(result.stdout), { args: ['--plan'], digest: createHash('sha256').update(token).digest('hex'), nodeOptions: null, bunOptions: null, legacy: null });
 });
 
 test('real protection CLI preserves readiness checks under an ESM temporary root', { skip: !inContainer }, async t => {
@@ -148,7 +148,7 @@ test('real protection CLI preserves readiness checks under an ESM temporary root
   await writeFile(join(bin, 'package.json'), JSON.stringify({ type: 'commonjs' }));
   for (const name of ['configure-main-protection.mjs', 'verification-policy.json', 'require-container.sh']) await writeFile(join(root, 'scripts', name), await readFile(resolve('scripts', name)));
   await writeFile(join(root, workflow), 'name: Fixture\n');
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(GIT_|GH_|GITHUB_|NODE_OPTIONS|NODE_PATH)/.test(key)));
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(GIT_|GH_|GITHUB_|NODE_OPTIONS|NODE_PATH|BUN_OPTIONS)/.test(key)));
   Object.assign(env, { GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', PATH: `${bin}:${process.env.PATH}`, TEST_POLICY_STATE: join(base, 'state.json'), TEST_POLICY_WRITES: join(base, 'writes.jsonl') });
   const git = (...args) => execFileSync('git', args, { cwd: root, env, encoding: 'utf8' }).trim();
   git('init', '-q', '-b', 'main'); git('config', 'user.name', 'Fixture'); git('config', 'user.email', 'fixture@example.invalid');

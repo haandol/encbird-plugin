@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 test('malformed and absolute-form callback targets cannot crash the process or redeem a code', async () => {
-  const { stdout, stderr } = await promisify(execFile)(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
+  const { stdout, stderr } = await promisify(execFile)(process.execPath, ['-e', `
     import assert from 'node:assert/strict';
     import { request } from 'node:http';
     import { callback, proof } from './src/oauth.ts';

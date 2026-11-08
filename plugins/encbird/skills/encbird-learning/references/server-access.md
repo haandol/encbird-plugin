@@ -16,11 +16,11 @@ Never discover another host's credential files, copy or migrate credentials, or 
 
 ## Script commands
 
-Resolve the installed skill's absolute path, then use the `scripts/encbird.mjs` file beside these references. The examples below assume the working directory is this skill's root. They do not require dependency installation.
+Resolve the installed skill's absolute path, then use the `scripts/encbird.mjs` file beside these references. The examples below assume the working directory is this skill's root. They require Bun and no dependency installation. Keep `--no-env-file` and `--config=../../bunfig.toml` so a `.env` or `bunfig.toml` in the working directory cannot change the runner; with another working directory, pass the absolute paths of the plugin's `bunfig.toml` and the script.
 
 ```sh
-node scripts/encbird.mjs list
-node scripts/encbird.mjs describe encbird_search_expressions
+bun --no-env-file --config=../../bunfig.toml scripts/encbird.mjs list
+bun --no-env-file --config=../../bunfig.toml scripts/encbird.mjs describe encbird_search_expressions
 ```
 
 `list` returns names, descriptions, and read-only flags without contacting the service. `describe` returns one tool's complete schema. Use these only when the needed schema is not already available.
@@ -28,7 +28,7 @@ node scripts/encbird.mjs describe encbird_search_expressions
 Apply [Privacy and evidence](privacy.md) before creating input files, command arguments or standard input, including every entry of a read plan. For one call, pass exactly one JSON arguments object on standard input. Keep user content out of shell interpolation; use a safely written input file for dynamic text.
 
 ```sh
-node scripts/encbird.mjs call encbird_connect <<'JSON'
+bun --no-env-file --config=../../bunfig.toml scripts/encbird.mjs call encbird_connect <<'JSON'
 {}
 JSON
 ```
@@ -36,7 +36,7 @@ JSON
 The script opens the browser and stays alive until sign-in completes or times out. A fixed progress message appears on standard error; standard output contains the final JSON result. Do not terminate the script simply because the learner has not finished yet. Cancel it when the learner cancels.
 
 ```sh
-node scripts/encbird.mjs call encbird_search_expressions <<'JSON'
+bun --no-env-file --config=../../bunfig.toml scripts/encbird.mjs call encbird_search_expressions <<'JSON'
 {"query":"meeting","limit":5}
 JSON
 ```
@@ -44,7 +44,7 @@ JSON
 For a known set of independent reads, `read-plan` accepts 1 to 5 entries and executes them sequentially. The entire plan's tool names and input schemas are checked before any service request. Writes and connection changes are rejected. Do not split an unbounded collection into many plans to bypass the limit.
 
 ```sh
-node scripts/encbird.mjs read-plan <<'JSON'
+bun --no-env-file --config=../../bunfig.toml scripts/encbird.mjs read-plan <<'JSON'
 [
   {"name":"encbird_get_context","arguments":{}},
   {"name":"encbird_search_expressions","arguments":{"query":"meeting","limit":5}}

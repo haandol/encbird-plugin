@@ -4,7 +4,7 @@ The plugin forwards learning tool calls to EncBird's remote MCP endpoint at `htt
 
 ## Runtime components
 
-The agent communicates with a local Node process over standard input and output using MCP (Model Context Protocol, a protocol for calling external tools). [index.ts](../plugins/encbird/src/index.ts) starts the process, and [server.ts](../plugins/encbird/src/server.ts) handles tool listing and invocation.
+The agent communicates with a local Bun process over standard input and output using MCP (Model Context Protocol, a protocol for calling external tools). [index.ts](../plugins/encbird/src/index.ts) starts the process, and [server.ts](../plugins/encbird/src/server.ts) handles tool listing and invocation.
 
 The bundled [script runner](../plugins/encbird/skills/encbird-learning/scripts/encbird.mjs) is an alternative entry point for deterministic shell calls. Both entry points use [runtime.ts](../plugins/encbird/src/runtime.ts), so scripts keep the same authentication, tool validation, and safe result handling as MCP. The runner supports single calls and read-only plans of at most five sequential calls, validates plan schemas before execution, and stops on the first error. See [Server access](../plugins/encbird/skills/encbird-learning/references/server-access.md) for commands and authentication scope.
 
@@ -18,7 +18,7 @@ Relative to the plugin directory, each configuration points to the following exe
 | `.codex-plugin/plugin.json` | `${PLUGIN_ROOT}/dist/index.js` |
 | `.claude-plugin/plugin.json` and `.mcp.json` | `${CLAUDE_PLUGIN_ROOT}/dist/index.js` |
 
-Every configuration uses `node` as the command. The agent substitutes the installation path for the root variable. Load one `encbird` server rather than registering each compatibility configuration as a separate server. Both repository marketplace configurations point to `plugins/encbird`.
+Every configuration uses `bun` as the command with `--no-env-file` and `--config=<root>/bunfig.toml` before the executable argument. These options keep a `.env` file or `bunfig.toml` in the agent's working directory from changing the plugin process; the plugin-owned [bunfig.toml](../plugins/encbird/bunfig.toml) also disables `.env` loading. The agent substitutes the installation path for the root variable. Bun 1.4.2 or later must be on the agent's executable path; the plugin does not install Bun or fall back to another runtime. Load one `encbird` server rather than registering each compatibility configuration as a separate server. Both repository marketplace configurations point to `plugins/encbird`.
 
 ## Tool calls
 
@@ -85,12 +85,13 @@ Once an operator has prepared a compatible local service, set its **full lifecyc
 ```sh
 export ENCBIRD_API_BASE_URL='http://localhost:18090/v1/mcp-learning'
 export ENCBIRD_CREDENTIALS_DIR="$HOME/.encbird-plugin-local"
-node /absolute/path/to/encbird-plugin/plugins/encbird/dist/index.js
+plugin=/absolute/path/to/encbird-plugin/plugins/encbird
+bun --no-env-file --config="$plugin/bunfig.toml" "$plugin/dist/index.js"
 ```
 
-Replace the executable path with the built public checkout's absolute path. The shell expands `$HOME` to an absolute path; this separate directory keeps local credentials apart from the default production directory. The example sends configuration requests to `http://localhost:18090/v1/mcp-learning/config` and learning requests to `http://localhost:18090/mcp`.
+Replace the plugin path with the built public checkout's absolute path. The shell expands `$HOME` to an absolute path; this separate directory keeps local credentials apart from the default production directory. The example sends configuration requests to `http://localhost:18090/v1/mcp-learning/config` and learning requests to `http://localhost:18090/mcp`.
 
-`dist/index.js` is a stdio server: it waits for an MCP host to initialize it and call tools. Starting it directly in a terminal does not prove service access or sign-in. For interactive testing, configure the agent to launch that same `node` command with the same environment instead. The plugin does **not** automatically load a `.env` file.
+`dist/index.js` is a stdio server: it waits for an MCP host to initialize it and call tools. Starting it directly in a terminal does not prove service access or sign-in. For interactive testing, configure the agent to launch that same `bun` command with the same environment instead. The plugin does **not** load a `.env` file.
 
 Exports reach only processes started from that shell. Start the agent from that shell after exporting them, and ensure it passes them to its MCP child process. An already-running desktop agent will not inherit new terminal exports. Hosts with per-server environment configuration can use the following shape; adapt it to the host's configuration format and replace **both** example paths with actual absolute paths:
 
@@ -98,8 +99,12 @@ Exports reach only processes started from that shell. Start the agent from that 
 {
   "mcpServers": {
     "encbird-local": {
-      "command": "node",
-      "args": ["/Users/alex/git/encbird-plugin/plugins/encbird/dist/index.js"],
+      "command": "bun",
+      "args": [
+        "--no-env-file",
+        "--config=/Users/alex/git/encbird-plugin/plugins/encbird/bunfig.toml",
+        "/Users/alex/git/encbird-plugin/plugins/encbird/dist/index.js"
+      ],
       "env": {
         "ENCBIRD_API_BASE_URL": "http://localhost:18090/v1/mcp-learning",
         "ENCBIRD_CREDENTIALS_DIR": "/Users/alex/.encbird-plugin-local"
