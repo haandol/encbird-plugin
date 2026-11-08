@@ -7,7 +7,7 @@
     },
     "plugins/encbird": {
       "name": "encbird-learning-plugin",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@modelcontextprotocol/sdk": "1.32.2",
         "ajv": "8.20.0",
