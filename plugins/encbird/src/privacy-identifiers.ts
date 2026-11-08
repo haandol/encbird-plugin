@@ -13,7 +13,7 @@ const birthBeforeDate = new RegExp(birthLabel + String.raw`[\t\n\f\r :=]*(?:(?:i
 const birthAfterDate = new RegExp('(?:^|[^0-9])' + date + ` *(?:(?:is|was) +(?:my |your |the )?${birthLabel}` +
   '|(?:에 *)?(?:태어났|태어남|출생)|(?:이|가|은|는)? *(?:제 |내 )?(?:생년월일|출생일|생일)(?:$|[.!?]| *(?:입니다|이에요|이다|이야)))', 'i');
 
-// Unicode 17 decimal digit blocks; explicit starts keep detection stable across Node ICU versions.
+// Unicode 17 decimal digit blocks; explicit starts keep detection stable across runtime ICU versions.
 const decimalStarts = [
   0x30, 0x660, 0x6f0, 0x7c0, 0x966, 0x9e6, 0xa66, 0xae6, 0xb66, 0xbe6, 0xc66, 0xce6,
   0xd66, 0xde6, 0xe50, 0xed0, 0xf20, 0x1040, 0x1090, 0x17e0, 0x1810, 0x1946, 0x19d0,

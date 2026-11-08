@@ -2,8 +2,10 @@
   "mcpServers": {
     "encbird": {
       "type": "stdio",
-      "command": "node",
+      "command": "bun",
       "args": [
+        "--no-env-file",
+        "--config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml",
         "${CLAUDE_PLUGIN_ROOT}/dist/index.js"
       ]
     }

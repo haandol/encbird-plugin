@@ -13,10 +13,10 @@ Usage: bash scripts/publish-release.sh VERSION FULL_COMMIT_SHA ZIP_SHA256 [--che
   --draft    Create or resume a matching draft; upload and verify all four prepared files.
   --publish  Complete the draft, verify downloaded bytes, then publish as Latest.
 
-Prepare first: node scripts/prepare-release.mjs VERSION FULL_COMMIT_SHA REVIEWED_NOTES_FILE
+Prepare first: bun scripts/prepare-release.mjs VERSION FULL_COMMIT_SHA REVIEWED_NOTES_FILE
 Push the tag before --draft/--publish. All modes require the repository's Docker image.
 Existing published releases are verified without changing Latest. Conflicts are never overwritten.
-This publisher never runs npm, builds, changes a version, commits, or pushes branches.
+This publisher never installs dependencies, builds, changes a version, commits, or pushes branches.
 EOF
 }
 fail() { printf 'Error: %s\n' "$*" >&2; exit 1; }
@@ -27,7 +27,7 @@ version="$1"; target="$2"; expected_checksum="$3"; mode="${4:---check}"
 [[ "$target" =~ ^[0-9a-f]{40}$ ]] || fail 'COMMIT_SHA must be a full Git SHA.'
 [[ "$expected_checksum" =~ ^[0-9a-f]{64}$ ]] || fail 'ZIP_SHA256 must be lowercase SHA-256.'
 case "$mode" in --check|--push|--draft|--publish) ;; *) fail "Unknown mode: $mode" ;; esac
-for tool in git gh jq node python3 sha256sum; do command -v "$tool" >/dev/null || fail "Missing tool: $tool"; done
+for tool in git gh jq bun python3 sha256sum; do command -v "$tool" >/dev/null || fail "Missing tool: $tool"; done
 cd -- "$scripts/.."
 root="$PWD"
 repo=haandol/encbird-plugin
@@ -41,10 +41,10 @@ assets=("encbird-plugin-$version.zip" manifest.json SHA256SUMS "release-notes-$t
 
 scratch="$(mktemp -d)"
 trap 'rm -rf -- "$scratch"' EXIT
-# Verification reads Git blobs and artifacts only; never expose relay tokens to Node startup hooks.
+# Verification reads Git blobs and artifacts only; never expose relay tokens to runtime startup hooks.
 (
-    unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN NPM_TOKEN NODE_AUTH_TOKEN NODE_OPTIONS NODE_PATH
-    node "$scripts/prepare-release.mjs" --verify "$version" "$target" "$expected_checksum"
+    unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN NPM_TOKEN NPM_CONFIG_TOKEN NODE_AUTH_TOKEN NODE_OPTIONS NODE_PATH BUN_OPTIONS
+    bun "$scripts/prepare-release.mjs" --verify "$version" "$target" "$expected_checksum"
 ) > "$scratch/manifest.json"
 
 checksum() { sha256sum "$1" | awk '{print $1}'; }

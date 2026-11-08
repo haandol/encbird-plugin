@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="라이선스: Apache 2.0"></a>
-  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-%3E%3D22.12-339933?logo=nodedotjs&amp;logoColor=white" alt="Node.js 22.12 이상"></a>
+  <a href="https://bun.sh"><img src="https://img.shields.io/badge/Bun-%3E%3D1.4.2-000000?logo=bun&amp;logoColor=white" alt="Bun 1.4.2 이상"></a>
 </p>
 
 <p align="center">
@@ -36,11 +36,27 @@
 ### 준비 사항
 
 - macOS 또는 Linux 데스크톱
-- [Node.js](https://nodejs.org) 22.12 이상
+- [Bun](https://bun.sh) 1.4.2 이상 (Node.js는 필요하지 않습니다)
 - 플러그인을 지원하는 Codex 또는 Claude Code
 - 같은 컴퓨터에서 로그인에 사용할 수 있는 브라우저
 
 Windows와 브라우저를 사용할 수 없는 원격 환경은 현재 지원하지 않습니다. 사용하는 도구에 맞는 명령을 터미널에서 실행하세요.
+
+### Bun 설치
+
+플러그인은 Bun으로 실행됩니다. 터미널에서 버전을 확인해 1.4.2 이상이면 바로 설치를 진행하세요.
+
+```sh
+bun --version
+```
+
+명령을 찾을 수 없거나 버전이 낮으면 Bun을 설치하거나 업데이트한 뒤 새 터미널에서 다시 확인합니다. 설치 방법은 [Bun 설치 안내](https://bun.sh/docs/installation)를 참고하세요.
+
+```sh
+curl -fsSL https://bun.sh/install | bash
+```
+
+Codex나 Claude Code를 데스크톱 앱이나 다른 셸에서 실행하면 터미널과 실행 경로가 달라 Bun을 찾지 못할 수 있습니다. 잉크버드(EncBird) 도구가 보이지 않으면 Bun 설치 후 Codex나 Claude Code를 완전히 종료했다가 다시 실행하세요. 그래도 보이지 않으면 `bun --version`이 동작하는 터미널에서 실행합니다. 플러그인은 Bun을 자동으로 설치하거나 다른 실행 환경으로 바꾸지 않습니다.
 
 ### Codex
 

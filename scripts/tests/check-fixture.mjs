@@ -18,41 +18,47 @@ export function checked(command, args, cwd, extra) {
   return result.stdout.trim();
 }
 
-export async function fixture(t, { npmBody = '' } = {}) {
+export async function fixture(t, { bunBody = '' } = {}) {
   const base = await mkdtemp(join(tmpdir(), 'encbird-verification-test-'));
   t.after(() => rm(base, { recursive: true, force: true }));
   const root = join(base, 'work');
   const bin = join(base, 'bin');
-  const log = join(base, 'npm-log.jsonl');
+  const log = join(base, 'bun-log.jsonl');
   await mkdir(join(root, 'scripts'), { recursive: true });
   await mkdir(bin);
   for (const name of ['check-source.mjs', 'check.mjs', 'runtime-smoke.mjs', 'pre-push.mjs', 'install-hooks.mjs', 'require-container.sh', 'verification-policy.json']) {
     await cp(resolve('scripts', name), join(root, 'scripts', name));
   }
-  for (const name of ['package.json', 'package-lock.json']) await cp(resolve(name), join(root, name));
+  for (const name of ['package.json', 'bun.lock', 'bunfig.toml', '.bun-version']) await cp(resolve(name), join(root, name));
   await mkdir(join(root, 'plugins/encbird'), { recursive: true });
-  for (const name of ['package.json', 'dist', 'contracts', 'skills']) await cp(resolve('plugins/encbird', name), join(root, 'plugins/encbird', name), { recursive: true });
+  for (const name of ['package.json', 'bunfig.toml', 'mcp.json', 'dist', 'contracts', 'skills']) await cp(resolve('plugins/encbird', name), join(root, 'plugins/encbird', name), { recursive: true });
   await mkdir(join(root, '.github/workflows'), { recursive: true });
   await cp(resolve('.github/workflows/ci.yaml'), join(root, '.github/workflows/ci.yaml'));
   await writeFile(join(root, '.gitignore'), 'node_modules/\n.test-tmp/\n');
   await writeFile(join(root, 'source.txt'), 'synthetic checked source\n');
   await writeFile(log, '');
-  await writeFile(join(bin, 'npm'), `#!/usr/bin/env node
+  // Records package-manager commands; script execution passes through to the real Bun binary.
+  await writeFile(join(bin, 'bun'), `#!${process.execPath}
 import fs from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 const root = ${JSON.stringify(root)};
 const log = ${JSON.stringify(log)};
 const args = process.argv.slice(2);
+if (!['run', 'install'].includes(args[0])) {
+  const result = spawnSync(${JSON.stringify(process.execPath)}, args, { stdio: 'inherit' });
+  process.exit(result.status ?? 1);
+}
 fs.appendFileSync(log, JSON.stringify({ args,
   credentials: ${JSON.stringify(publicationCredentialNames)}.filter(name => process.env[name]),
   gitDir: process.env.GIT_DIR ?? null, gitIndex: process.env.GIT_INDEX_FILE ?? null,
   nodeOptions: process.env.NODE_OPTIONS ?? null,
   nodePath: process.env.NODE_PATH ?? null,
-  userConfig: fs.readFileSync(process.env.NPM_CONFIG_USERCONFIG, 'utf8'),
+  bunOptions: process.env.BUN_OPTIONS ?? null,
+  installCache: process.env.BUN_INSTALL_CACHE_DIR ?? null,
 }) + '\\n');
-${npmBody}
+${bunBody}
 `, { mode: 0o755 });
-  await chmod(join(bin, 'npm'), 0o755);
+  await chmod(join(bin, 'bun'), 0o755);
   const env = { PATH: `${bin}:${process.env.PATH}` };
   const localGit = (...args) => checked('git', args, root);
   localGit('init', '-q', '-b', 'main');

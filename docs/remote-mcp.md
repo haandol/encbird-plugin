@@ -1,6 +1,6 @@
 # Remote MCP transport contract
 
-The installed plugin remains a local Node process for Codex or Claude Code. Its 12 learning tools call `https://api.encbird.com/mcp` through Streamable HTTP, the MCP transport that carries protocol messages in HTTP requests. The script runner uses the same implementation. Tool names, arguments, consent requirements and learning-result schemas remain unchanged.
+The installed plugin remains a local Bun process for Codex or Claude Code. Its 12 learning tools call `https://api.encbird.com/mcp` through Streamable HTTP, the MCP transport that carries protocol messages in HTTP requests. The script runner uses the same implementation. Tool names, arguments, consent requirements and learning-result schemas remain unchanged.
 
 ## Endpoints and authentication
 

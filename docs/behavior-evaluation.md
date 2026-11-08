@@ -6,17 +6,17 @@ This is maintenance tooling, not a production account test or a paid CI gate. Th
 
 ## Prepare and inspect without a model
 
-Use the project Dev Container and its existing dependencies. The harness uses Node built-ins, `@modelcontextprotocol/sdk`, and Ajv already available in the workspace. No evaluation dependency belongs in a product bundle.
+Use the project Dev Container and its existing dependencies. The harness runs on Bun and uses `node:` standard-library modules, `@modelcontextprotocol/sdk`, and Ajv already available in the workspace. No evaluation dependency belongs in a product bundle.
 
 ```sh
-npm run eval:skills
-npm run eval:skills -- --list
-npm run eval:skills -- --family consent
-npm run eval:skills -- --case review-waits --output .test-tmp/behavior-evaluation/review-example
-npm run eval:skills -- --report .test-tmp/behavior-evaluation/review-example
+bun run eval:skills
+bun run eval:skills -- --list
+bun run eval:skills -- --family consent
+bun run eval:skills -- --case review-waits --output .test-tmp/behavior-evaluation/review-example
+bun run eval:skills -- --report .test-tmp/behavior-evaluation/review-example
 ```
 
-The direct entry point is `node evals/run.mjs`. It also accepts the `prepare`, `list`, and `report RUN_DIR` subcommands. Repeated `--case` options select several cases; `--family` selects `consent`, `review`, `privacy`, or `recovery`. Preparation does not probe a configured CLI, inspect authentication, or run an agent, even when target configuration options are present. Combining explicit `prepare`/`--prepare` with `--live` is rejected in either order, before creating output or starting a subprocess.
+The direct entry point is `bun evals/run.mjs`. It also accepts the `prepare`, `list`, and `report RUN_DIR` subcommands. Repeated `--case` options select several cases; `--family` selects `consent`, `review`, `privacy`, or `recovery`. Preparation does not probe a configured CLI, inspect authentication, or run an agent, even when target configuration options are present. Combining explicit `prepare`/`--prepare` with `--live` is rejected in either order, before creating output or starting a subprocess.
 
 ### Immutable run artifacts
 
@@ -34,12 +34,12 @@ Preparation and listing return exit code 0 when they complete successfully. That
 
 ```sh
 # Intentionally paid target execution; semantic obligations remain unverified.
-node evals/run.mjs --live \
+bun evals/run.mjs --live \
   --cli /path/to/claude --model YOUR_EXISTING_TARGET_MODEL --provider anthropic \
   --case consent-credits
 
 # Intentionally paid target AND separate semantic judgment.
-node evals/run.mjs --live \
+bun evals/run.mjs --live \
   --cli /path/to/claude --model YOUR_EXISTING_TARGET_MODEL --provider anthropic \
   --judge --judge-cli /path/to/claude \
   --judge-model YOUR_EXISTING_JUDGE_MODEL --judge-provider anthropic \
@@ -137,9 +137,9 @@ An overall `FAIL` survives any passing rows or runtime errors. Otherwise an exec
 Run only the scoped suite while other workers are changing unrelated files:
 
 ```sh
-npm run test:eval
+bun run test:eval
 # Equivalent:
-node --test evals/tests/*.test.mjs
+bun test evals/tests/*.test.mjs
 ```
 
 The tests use a fake Claude executable and real stdio MCP fixture transport. They exercise the public CLI entry point, help/version preflight, missing authentication, target/judge selection, immutable output directories, malformed and denied calls, all four behavior families, false passes, missing/invalid evidence, partial execution, output caps, and descendant cleanup. Fake semantic judgments test validation mechanics only. Tests never launch an installed Claude executable or call a model, account, browser, or EncBird endpoint.

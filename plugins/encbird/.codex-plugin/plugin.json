@@ -1,6 +1,6 @@
 {
   "name": "encbird",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "license": "Apache-2.0",
   "description": "Collect English expressions and practice with EncBird through your assistant.",
   "author": {
@@ -18,8 +18,10 @@
   "mcpServers": {
     "encbird": {
       "type": "stdio",
-      "command": "node",
+      "command": "bun",
       "args": [
+        "--no-env-file",
+        "--config=${PLUGIN_ROOT}/bunfig.toml",
         "${PLUGIN_ROOT}/dist/index.js"
       ]
     }

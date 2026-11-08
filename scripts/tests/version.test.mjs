@@ -10,24 +10,41 @@ import { assertVersions, bumpVersion, readVersion, updateVersion } from '../lib/
 
 const run = promisify(execFile);
 const versionFiles = [
-  'package.json', 'plugins/encbird/package.json', 'package-lock.json',
+  'package.json', 'plugins/encbird/package.json', 'bun.lock',
   'plugins/encbird/plugin.json', 'plugins/encbird/.codex-plugin/plugin.json',
   'plugins/encbird/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json',
 ];
-const json = async (root, file) => JSON.parse(await readFile(join(root, file), 'utf8'));
+const parse = (file, text) => file === 'bun.lock' ? Bun.JSONC.parse(text) : JSON.parse(text);
+const json = async (root, file) => parse(file, await readFile(join(root, file), 'utf8'));
 const writeJson = (root, file, value) => writeFile(join(root, file), JSON.stringify(value, null, 2) + '\n');
+
+// Bun's text lockfile format, including trailing commas and an unversioned root workspace.
+const lockfile = version => `{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "encbird-plugin-workspace",
+    },
+    "plugins/encbird": {
+      "name": "encbird-learning-plugin",
+      "version": "${version}",
+      "dependencies": {
+        "example": "0.1.0",
+      },
+    },
+  },
+  "packages": {
+    "example": ["example@0.1.0", "", { "version": "0.1.0" }, "fixture-only"],
+  }
+}
+`;
 
 async function fixture(t, version = '0.1.0') {
   const root = await mkdtemp(join(tmpdir(), 'encbird-version-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const documents = {
-    'package.json': { name: 'encbird-plugin-workspace', version, scripts: { check: 'node check.mjs' }, private: true },
+    'package.json': { name: 'encbird-plugin-workspace', version, scripts: { check: 'bun check.mjs' }, private: true },
     'plugins/encbird/package.json': { name: 'encbird-learning-plugin', version, dependencies: { example: '0.1.0' } },
-    'package-lock.json': { version, lockfileVersion: 3, packages: {
-      '': { version, license: 'Apache-2.0' },
-      'plugins/encbird': { version, dependencies: { example: '0.1.0' } },
-      'node_modules/example': { version: '0.1.0', integrity: 'fixture-only' },
-    } },
     'plugins/encbird/plugin.json': { name: 'encbird', version, extensions: { example: { version: '0.1.0' } } },
     'plugins/encbird/.codex-plugin/plugin.json': { name: 'encbird', version, skills: './skills/' },
     'plugins/encbird/.claude-plugin/plugin.json': { name: 'encbird', version, mcpServers: './.mcp.json' },
@@ -44,6 +61,7 @@ async function fixture(t, version = '0.1.0') {
     await mkdir(dirname(join(root, file)), { recursive: true });
     await writeJson(root, file, data);
   }
+  await writeFile(join(root, 'bun.lock'), lockfile(version));
   return root;
 }
 
@@ -70,7 +88,7 @@ test('reads the authoritative root version and checks every synchronized version
   await assert.rejects(assertVersions(root), /plugin.json.version is 0.2.0; expected 0.1.0/);
 });
 
-test('updates all nine version fields, selects encbird by name, and preserves unrelated keys and files', async t => {
+test('updates all seven version fields, selects encbird by name, and preserves unrelated keys and files', async t => {
   const root = await fixture(t);
   const before = await bytes(root);
   assert.equal(await updateVersion(root, '1.2.3'), '1.2.3');
@@ -79,13 +97,10 @@ test('updates all nine version fields, selects encbird by name, and preserves un
   assert.deepEqual(Object.keys(after), Object.keys(before));
   for (const [file, content] of Object.entries(before)) {
     if (!versionFiles.includes(file)) { assert.equal(after[file], content); continue; }
+    if (file === 'bun.lock') { assert.equal(after[file], lockfile('1.2.3')); continue; }
     const expected = JSON.parse(content);
     if (file === '.claude-plugin/marketplace.json') expected.plugins[1].version = '1.2.3';
     else expected.version = '1.2.3';
-    if (file === 'package-lock.json') {
-      expected.packages[''].version = '1.2.3';
-      expected.packages['plugins/encbird'].version = '1.2.3';
-    }
     assert.deepEqual(JSON.parse(after[file]), expected, file);
   }
 });
@@ -145,9 +160,8 @@ test('validates every file before writing, including same-version requests', asy
 
 test('rejects every missing, malformed, or mismatched version target before writing', async t => {
   const selections = [
-    ...versionFiles.filter(file => !file.includes('marketplace')).map(file => [file, data => data]),
-    ['package-lock.json', data => data.packages['']],
-    ['package-lock.json', data => data.packages['plugins/encbird']],
+    ...versionFiles.filter(file => !file.includes('marketplace') && file !== 'bun.lock').map(file => [file, data => data]),
+    ['bun.lock', data => data.workspaces['plugins/encbird']],
     ['.claude-plugin/marketplace.json', data => data.plugins[1]],
   ];
   for (const [file, select] of selections) {
@@ -164,11 +178,14 @@ test('rejects every missing, malformed, or mismatched version target before writ
 });
 
 test('rejects incomplete lockfile structures and missing or ambiguous marketplace entries', async t => {
-  for (const packages of [undefined, [], {}, { '': { version: '0.1.0' } }]) {
+  for (const workspaces of [undefined, [], {}, { '': { name: 'workspace' } }, { 'plugins/encbird': { version: '0.1.0' } }]) {
     const root = await fixture(t);
-    await writeJson(root, 'package-lock.json', { version: '0.1.0', packages });
+    await writeJson(root, 'bun.lock', { lockfileVersion: 1, workspaces });
     await rejectUnchanged(root, '0.2.0', /must be an object/);
   }
+  const root = await fixture(t);
+  await writeFile(join(root, 'bun.lock'), lockfile('0.1.0').replace('"packages": {', '"plugins/encbird": { "version": "0.1.0" },\n  "packages": {'));
+  await rejectUnchanged(root, '0.2.0', /exactly one plugins\/encbird workspace version/);
   for (const plugins of [undefined, {}, [], [{ name: 'other', version: '0.1.0' }],
     [{ name: 'encbird', version: '0.1.0' }, { name: 'encbird', version: '0.1.0' }]]) {
     const root = await fixture(t);

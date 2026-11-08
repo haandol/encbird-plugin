@@ -9,4 +9,4 @@ if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
     printf '%s\n' 'Use a standalone clone of haandol/encbird-plugin. Git metadata outside the workspace is not mounted.' >&2
     exit 1
 fi
-node scripts/install-hooks.mjs
+bun scripts/install-hooks.mjs

@@ -1,11 +1,11 @@
 {
-  "name": "EncBird Plugin (Docker release, Node 24)",
+  "name": "EncBird Plugin (Docker release, Bun 1.4.2)",
   "build": {
     "dockerfile": "Dockerfile"
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/encbird-plugin,type=bind,consistency=cached",
   "workspaceFolder": "/workspaces/encbird-plugin",
-  "remoteUser": "node",
+  "remoteUser": "bun",
   "mounts": [
     "source=encbird-plugin-node-modules-${devcontainerId},target=/workspaces/encbird-plugin/node_modules,type=volume",
     "source=encbird-plugin-test-tmp-${devcontainerId},target=/workspaces/encbird-plugin/.test-tmp,type=volume"

@@ -1,13 +1,13 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { copyFile, lstat, mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   assertUnchanged, requireCommittedSource, requireContainer, requireNoPublicationCredentials,
-  sourceState, verificationEnvironment,
+  runtimePreloadVariables, sourceState, verificationEnvironment,
 } from './check-source.mjs';
 
 async function copyInstallation(source, target) {
@@ -25,8 +25,8 @@ async function copyInstallation(source, target) {
   await copyFile(source, target);
 }
 
-function startProcess(file, args, cwd, env, timeoutMs) {
-  const child = spawn(process.execPath, [file, ...args], { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], detached: true });
+function startProcess(args, cwd, env, timeoutMs) {
+  const child = spawn(process.execPath, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], detached: true });
   let output = '', errorOutput = '', failure;
   let lineBuffer = '';
   const waiting = new Map();
@@ -108,7 +108,7 @@ export async function smokeInstalledPlugin(root, { env, timeoutMs = 10_000 } = {
   try {
     const installed = join(scratch, 'plugins/encbird');
     await mkdir(installed, { recursive: true });
-    for (const path of ['package.json', 'dist', 'contracts', 'skills']) {
+    for (const path of ['package.json', 'bunfig.toml', 'mcp.json', 'dist', 'contracts', 'skills']) {
       await copyInstallation(join(root, 'plugins/encbird', path), join(installed, path));
     }
     for (let path = installed; ; path = dirname(path)) {
@@ -121,15 +121,24 @@ export async function smokeInstalledPlugin(root, { env, timeoutMs = 10_000 } = {
       ENCBIRD_API_BASE_URL: 'http://127.0.0.1:1/v1/mcp-learning',
       ENCBIRD_CREDENTIALS_DIR: join(scratch, 'credentials'), ENCBIRD_AUTH_SCOPE: 'installed-smoke',
     };
-    delete childEnv.NODE_PATH;
-    delete childEnv.NODE_OPTIONS;
+    for (const name of runtimePreloadVariables) delete childEnv[name];
     requireNoPublicationCredentials(childEnv);
-    const launch = (file, args = []) => {
-      const process = startProcess(join(installed, file), args, scratch, childEnv, timeoutMs);
+    // A host may start the plugin from any project; that project's Bun preload must not run in the plugin.
+    const preloaded = join(scratch, 'project-preload-ran');
+    await writeFile(join(scratch, 'project-preload.mjs'), `import { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(preloaded)}, 'ran');\n`);
+    await writeFile(join(scratch, 'bunfig.toml'), 'preload = ["./project-preload.mjs"]\n');
+    const manifest = JSON.parse(await readFile(join(installed, 'mcp.json'), 'utf8')).mcpServers.encbird;
+    assert.equal(manifest.command, 'bun', 'Installed MCP must launch with Bun');
+    const serverArgs = manifest.args.map(arg => arg.replaceAll('${PLUGIN_ROOT}', installed));
+    assert.equal(serverArgs.at(-1), join(installed, 'dist/index.js'), 'Installed MCP must launch its bundled entry point');
+    // The skill CLI uses the same Bun options as the host launch, with its own entry point.
+    const cliArgs = file => [...serverArgs.slice(0, -1), join(installed, file)];
+    const launch = (args) => {
+      const process = startProcess(args, scratch, childEnv, timeoutMs);
       processes.push(process);
       return process;
     };
-    const server = launch('dist/index.js');
+    const server = launch(serverArgs);
     const initialized = await server.request(1, 'initialize', {
       protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'installed-smoke', version: '1.0.0' },
     });
@@ -142,12 +151,13 @@ export async function smokeInstalledPlugin(root, { env, timeoutMs = 10_000 } = {
     assert.deepEqual(tools.map(tool => tool.name).sort(), names);
     await server.finish();
     const cli = 'skills/encbird-learning/scripts/encbird.mjs';
-    const listed = JSON.parse(await launch(cli, ['list']).finish());
+    const listed = JSON.parse(await launch([...cliArgs(cli), 'list']).finish());
     assert.equal(listed.data?.tools?.length, 14, 'Installed skill CLI must expose all 14 tools');
     assert.deepEqual(listed.data.tools.map(tool => tool.name).sort(), names);
-    const described = JSON.parse(await launch(cli, ['describe', 'encbird_add_expression']).finish());
+    const described = JSON.parse(await launch([...cliArgs(cli), 'describe', 'encbird_add_expression']).finish());
     assert.deepEqual(described.data, contract.tools.find(tool => tool.name === 'encbird_add_expression'));
-    console.log(`Installed MCP initialize/tools/list (14) and skill CLI list/describe passed without node_modules on Node ${process.versions.node}.`);
+    await assert.rejects(lstat(preloaded), { code: 'ENOENT' }, 'A working-directory bunfig.toml preload reached the installed plugin');
+    console.log(`Installed MCP initialize/tools/list (14) and skill CLI list/describe passed without node_modules on Bun ${Bun.version}.`);
   } finally {
     await Promise.all(processes.map(process => process.dispose()));
     await rm(scratch, { recursive: true, force: true });
@@ -159,7 +169,7 @@ async function main() {
   requireContainer();
   requireNoPublicationCredentials();
   const args = process.argv.slice(2);
-  if (args.length > 1 || (args.length === 1 && args[0] !== '--committed')) throw new Error('Usage: node scripts/runtime-smoke.mjs [--committed]');
+  if (args.length > 1 || (args.length === 1 && args[0] !== '--committed')) throw new Error('Usage: bun scripts/runtime-smoke.mjs [--committed]');
   const root = fileURLToPath(new URL('../', import.meta.url));
   const before = await sourceState(root);
   if (args.length) await requireCommittedSource(root, before);

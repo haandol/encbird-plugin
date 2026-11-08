@@ -4,7 +4,7 @@ This repository contains everything needed to modify and test the plugin. Tests 
 
 ## Development environment
 
-Install Docker and the VS Code Dev Containers extension, open the repository, and run **Dev Containers: Reopen in Container**. The [Dockerfile](../.devcontainer/Dockerfile) installs Node 24, Git, GitHub CLI, and development tools. The [container configuration](../.devcontainer/devcontainer.json) prepares its dependency/test volumes, installs the repository pre-push guard, and runs `npm ci --ignore-scripts` when first created. Startup refreshes the guard without replacing existing security hooks.
+Install Docker and the VS Code Dev Containers extension, open the repository, and run **Dev Containers: Reopen in Container**. The [Dockerfile](../.devcontainer/Dockerfile) starts from the Bun 1.4.2 image, removes its `node` alias so the container has no Node.js command, and installs Git, GitHub CLI, and development tools. The [container configuration](../.devcontainer/devcontainer.json) prepares its dependency/test volumes, installs the repository pre-push guard, and runs `bun install --frozen-lockfile --ignore-scripts` when first created. Startup refreshes the guard without replacing existing security hooks.
 
 Use a standalone clone of the public repository for Dev Containers. A submodule or linked worktree whose Git metadata lives outside the mounted workspace cannot run Git there; do not mount the private EncBird repository to repair that.
 
@@ -14,31 +14,31 @@ Use the Dev Container for builds and mock API tests. Run real browser sign-in on
 
 ## Builds and tests
 
-Run these commands from the repository root in the container terminal. Skip `npm ci` if container creation has already installed the dependencies.
+Run these commands from the repository root in the container terminal. Skip `bun install` if container creation has already installed the dependencies. The build refuses a Bun version other than `.bun-version`, so the regenerated bundle stays byte-identical.
 
 ```sh
-npm ci --ignore-scripts
-npm run check
+bun install --frozen-lockfile --ignore-scripts
+bun run check
 ```
 
-When runtime source or contracts change, intentionally run `npm run build`, inspect the generated distribution, and then run `npm run check`. The check boots the current installation before rebuilding and fails if a rebuild changes source or tracked output; it does not silently repair a stale bundle. It accepts working-tree changes for development but does not issue a push receipt.
+When runtime source or contracts change, intentionally run `bun run build`, inspect the generated distribution, and then run `bun run check`. The check boots the current installation before rebuilding and fails if a rebuild changes source or tracked output; it does not silently repair a stale bundle. It accepts working-tree changes for development but does not issue a push receipt.
 
-The [continuous verification guide](continuous-verification.md) covers the same-source push receipt and independent CI jobs. After committing the complete changes, use `npm run check:push` without publication credentials before an authenticated push. Remote CI still runs its own required checks.
+The [continuous verification guide](continuous-verification.md) covers the same-source push receipt and independent CI jobs. After committing the complete changes, use `bun run check:push` without publication credentials before an authenticated push. Remote CI still runs its own required checks.
 
 The commands in the [root package.json](../package.json) separate these responsibilities:
 
 | Command | Scope |
 | --- | --- |
-| `npm run check:test` | Version/type checks, runtime and release fixtures, deterministic behavior-evaluation tests, document links, contracts and distribution hashes |
-| `npm run check:build` / `npm run test:runtime` | The installed MCP and script entry points without development dependencies; build also verifies regeneration leaves source unchanged |
-| `npm run check:push` | Fresh locked dependencies and full verification of clean committed source, followed by a matching local receipt |
-| `npm run eval:skills -- --prepare` | Prepare synthetic behavior cases with no model calls; the report remains NOT RUN |
+| `bun run check:test` | Version/type checks, runtime and release fixtures, deterministic behavior-evaluation tests, document links, contracts and distribution hashes |
+| `bun run check:build` / `bun run test:runtime` | The installed MCP and script entry points without development dependencies; build also verifies regeneration leaves source unchanged |
+| `bun run check:push` | Fresh locked dependencies and full verification of clean committed source, followed by a matching local receipt |
+| `bun run eval:skills -- --prepare` | Prepare synthetic behavior cases with no model calls; the report remains NOT RUN |
 
 Type checking and build commands are defined in the [plugin package.json](../plugins/encbird/package.json). Tests live in [test/](../plugins/encbird/test/); distribution checks are implemented in [validate.mjs](../scripts/validate.mjs).
 
 ## Local service testing
 
-`npm run check` builds the plugin and exercises mock services inside the project Docker environment. Its process tests pass `ENCBIRD_API_BASE_URL` and `ENCBIRD_CREDENTIALS_DIR` to the bundled stdio process and verify calls reach the mock `/mcp` endpoint. Passing these tests does not mean an application server is running on your desktop.
+`bun run check` builds the plugin and exercises mock services inside the project Docker environment. Its process tests pass `ENCBIRD_API_BASE_URL` and `ENCBIRD_CREDENTIALS_DIR` to the bundled stdio process and verify calls reach the mock `/mcp` endpoint. Passing these tests does not mean an application server is running on your desktop.
 
 For an actual local service, obtain a prepared lifecycle API base from its operator, such as `http://localhost:18090/v1/mcp-learning`. The port is an example, not a server started by this repository. Before launching the desktop plugin, confirm:
 
@@ -46,7 +46,7 @@ For an actual local service, obtain a prepared lifecycle API base from its opera
 - Its OAuth configuration and provider support the plugin's registered callback, `http://localhost:18765/oauth/callback`, and learning resource/scopes. Keep that callback port available on the desktop.
 - The signed-in identity has test data in the intended local environment. Configure a separate local credential directory as shown in [Runtime configuration](runtime.md#desktop-connection-to-a-local-service).
 
-Run the built `node .../dist/index.js` process through a desktop MCP host using those environment values. Keep the plugin and browser on the same desktop for the loopback callback; the Dev Container's `localhost` is a different network environment. Follow the runtime guide's exports or host environment configuration explicitly; creating a `.env` file alone has no effect.
+Run the built `bun .../dist/index.js` process, with the launch options from the [runtime guide](runtime.md#desktop-connection-to-a-local-service), through a desktop MCP host using those environment values. Keep the plugin and browser on the same desktop for the loopback callback; the Dev Container's `localhost` is a different network environment. Follow the runtime guide's exports or host environment configuration explicitly; creating a `.env` file alone has no effect.
 
 Verify MCP initialization and tool listing first, then call `encbird_connect`, finish browser sign-in, and call it again until `connected` is confirmed. Read test data with `encbird_get_context` or `encbird_list_expressions` and confirm the request reached the intended local service. Call `encbird_disconnect` and confirm `disconnected` when finished. Report mock checks and actual service/OAuth results separately; a synthetic sign-in provider cannot establish real account sign-in or refresh behavior.
 
@@ -67,7 +67,7 @@ Rebuild and validate after changing runtime source or contracts. `validate` comp
 
 The MCP and script bundle hashes are both checked. Distribution must include the skill's `scripts/` and `references/` directories. Script tests invoke the installed runner as a separate process against mock HTTP endpoints, including sequential execution, invalid-plan rejection, and persistent cooldowns. Traffic tests also cover concurrent callers, rolling-window admission, MCP negotiation requests, and cooldowns during remote calls. No test sends learning data to the production API.
 
-`npm run validate:docs` checks relative file targets in source Markdown, including inline/reference links, images and HTML links. It ignores code examples and leaves uninstantiated `*.template.md` sources for their generated documents. It does not fetch external URLs or validate fragment anchors. Release preparation repeats file-target checks against the actual packaged file inventory, with no template exemption, so a source-tree-only file cannot satisfy a ZIP link.
+`bun run validate:docs` checks relative file targets in source Markdown, including inline/reference links, images and HTML links. It ignores code examples and leaves uninstantiated `*.template.md` sources for their generated documents. It does not fetch external URLs or validate fragment anchors. Release preparation repeats file-target checks against the actual packaged file inventory, with no template exemption, so a source-tree-only file cannot satisfy a ZIP link.
 
 The separate [behavior harness](behavior-evaluation.md) records synthetic user phases and real fixture-tool attempts. Its deterministic tests verify the harness, while an actual agent run and optional semantic judge require explicit execution. Neither a mock pass nor a prepared report proves that a live agent follows the learning Skill.
 

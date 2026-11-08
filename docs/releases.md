@@ -4,17 +4,17 @@ The public destination is `haandol/encbird-plugin`. A release uses a stable `vX.
 
 ## Prepare the environment and version
 
-Open a standalone clone of the public repository with **Dev Containers: Reopen in Container**. The container includes Node, Git, GitHub CLI and archive tools. It mounts only the public checkout and separate dependency/test volumes; host SSH or GitHub credential directories are not mounted. Real learner browser login remains a desktop workflow.
+Open a standalone clone of the public repository with **Dev Containers: Reopen in Container**. The container includes Bun, Git, GitHub CLI and archive tools, and no Node.js command. It mounts only the public checkout and separate dependency/test volumes; host SSH or GitHub credential directories are not mounted. Real learner browser login remains a desktop workflow.
 
-Startup installs a repository pre-push hook and preserves the previous hook and effective `core.hooksPath`. It blocks host pushes, verifies complete-source checks, and delegates the original hook inside the project container. An authenticated push requires a matching receipt from a separate, credential-free `npm run check:push`; builds and tests never receive a publication token. A custom external hook runner must delegate repository-local hooks. Local guards are operator workflow controls, not server-side proof of Docker execution. See [Continuous verification](continuous-verification.md).
+Startup installs a repository pre-push hook and preserves the previous hook and effective `core.hooksPath`. It blocks host pushes, verifies complete-source checks, and delegates the original hook inside the project container. An authenticated push requires a matching receipt from a separate, credential-free `bun run check:push`; builds and tests never receive a publication token. A custom external hook runner must delegate repository-local hooks. Local guards are operator workflow controls, not server-side proof of Docker execution. See [Continuous verification](continuous-verification.md).
 
-`npm run version:check` verifies all release versions. The root package version, plugin package, lockfile, portable/Codex/Claude manifests and Claude marketplace entry must agree. Runtime version metadata follows the plugin package. The learning API contract has its own version and is not bumped by these commands.
+`bun run version:check` verifies all release versions. The root package version, plugin package, lockfile, portable/Codex/Claude manifests and Claude marketplace entry must agree. Runtime version metadata follows the plugin package. The learning API contract has its own version and is not bumped by these commands.
 
 ```sh
-npm run version:bump -- patch
+bun run version:bump -- patch
 # Or select an explicit stable version:
-npm run version:set -- 0.1.1
-npm run check
+bun run version:set -- 0.1.1
+bun run check
 ```
 
 A repeated explicit version is a no-op; downgrades or existing version drift stop for inspection. The version command does not commit, tag, push or publish. Review the generated bundles, commit the versioned source, then use that exact commit throughout the release.
@@ -26,7 +26,7 @@ Write concise Korean release notes from the actual public changes, with no priva
 ```sh
 release_version=0.1.1
 release_commit=$(git rev-parse HEAD)
-npm run release:prepare -- "$release_version" "$release_commit" /tmp/release-notes.md
+bun run release:prepare -- "$release_version" "$release_commit" /tmp/release-notes.md
 ```
 
 Preparation runs the complete checks without publication credentials. It requires clean committed source and stops if a fresh build changes tracked files. Rebuild and commit those changes before trying again. The package retains the marketplace and `plugins/encbird` installation layout, including runtime bundles, skills, contracts and license files. Relative file targets in the packaged Markdown must exist in that package. Git metadata, development sources, tests, dependencies and environment files are excluded.
@@ -38,7 +38,7 @@ Outputs are kept under `.release/VERSION/COMMIT/`. Keep the ZIP, manifest, check
 First land the source commit on remote `main` through the repository's applicable review path. Before passing publication credentials to a Git process, verify the clean commit in a credential-free container process:
 
 ```sh
-npm run check:push
+bun run check:push
 ```
 
 Make any authorized branch push inside the container, with automatic tag following disabled:
@@ -49,12 +49,12 @@ git -c push.followTags=false push origin main
 
 Do not substitute a direct main push when remote review rules require a PR. If a squash or another merge changes the commit SHA, prepare the package again from the merged SHA at the same version; do not relabel an older artifact. Publishing does not push or merge an unreviewed branch for you.
 
-Use `release:push` to create/reuse and push only the verified annotated version tag. It requires the same commit and ZIP checksum as publication. `npm run tag:push -- VERSION` is the shorter entry point for a tag that has already been prepared. The check command never publishes:
+Use `release:push` to create/reuse and push only the verified annotated version tag. It requires the same commit and ZIP checksum as publication. `bun run tag:push -- VERSION` is the shorter entry point for a tag that has already been prepared. The check command never publishes:
 
 ```sh
-npm run release:check -- VERSION FULL_COMMIT_SHA ZIP_SHA256
-npm run release:push -- VERSION FULL_COMMIT_SHA ZIP_SHA256
-npm run release:publish -- VERSION FULL_COMMIT_SHA ZIP_SHA256
+bun run release:check -- VERSION FULL_COMMIT_SHA ZIP_SHA256
+bun run release:push -- VERSION FULL_COMMIT_SHA ZIP_SHA256
+bun run release:publish -- VERSION FULL_COMMIT_SHA ZIP_SHA256
 ```
 
 New release checks and writes require successful `test`, `build`, and `runtime` checks as declared in the exact source commit's verification policy. Missing, pending or skipped required checks are not success. This also applies before main protection is activated. The publisher verifies or resumes a matching draft, verifies uploaded bytes, and publishes it. Conflicting metadata/assets and tag/source mismatches stop the operation. An identical already-published release is verified without resetting Latest or imposing new CI requirements on its historical commit.

@@ -21,9 +21,25 @@ for (const manifest of [codex, claude, portable]) {
   assert.equal(manifest.name, 'encbird'); assert.equal(manifest.author.name, 'EncBird'); assert.equal(manifest.homepage, 'https://encbird.com');
   assert.equal(manifest.repository, 'https://github.com/haandol/encbird-plugin'); assert.equal(manifest.version, version);
 }
-assert.deepEqual((await json('mcp.json')).mcpServers.encbird.args, ['${PLUGIN_ROOT}/dist/index.js']);
-assert.deepEqual(codex.mcpServers.encbird.args, ['${PLUGIN_ROOT}/dist/index.js']);
-assert.deepEqual((await json('.mcp.json')).mcpServers.encbird.args, ['${CLAUDE_PLUGIN_ROOT}/dist/index.js']);
+// Hosts launch Bun with the plugin-owned config so a project's .env or bunfig.toml cannot reach the bridge.
+const launch = variable => ({ type: 'stdio', command: 'bun', args: ['--no-env-file', `--config=\${${variable}}/bunfig.toml`, `\${${variable}}/dist/index.js`] });
+assert.deepEqual((await json('mcp.json')).mcpServers.encbird, launch('PLUGIN_ROOT'));
+assert.deepEqual(codex.mcpServers.encbird, launch('PLUGIN_ROOT'));
+assert.deepEqual((await json('.mcp.json')).mcpServers.encbird, launch('CLAUDE_PLUGIN_ROOT'));
+assert.match(await readFile(new URL('bunfig.toml', plugin), 'utf8'), /^env = false$/m);
+assert.match(await readFile(new URL('bunfig.toml', root), 'utf8'), /^env = false$/m);
+const bunVersion = (await readFile(new URL('.bun-version', root), 'utf8')).trim();
+const workspace = await json('package.json', root);
+const pluginPackage = await json('package.json');
+assert.equal(Bun.version, bunVersion, `Verification requires Bun ${bunVersion}.`);
+assert.equal(workspace.packageManager, `bun@${bunVersion}`);
+assert.deepEqual(workspace.engines, { bun: `>=${bunVersion}` });
+assert.deepEqual(pluginPackage.engines, workspace.engines);
+assert.equal((await readFile(new URL('.devcontainer/Dockerfile', root), 'utf8')).split('\n')[0], `ARG BUN_IMAGE=oven/bun:${bunVersion}-alpine`);
+assert.match(await readFile(new URL('.github/workflows/ci.yaml', root), 'utf8'), new RegExp(`- bun: ${bunVersion.replaceAll('.', '\\.')}\n\\s+image: oven/bun:${bunVersion.replaceAll('.', '\\.')}-alpine\n`));
+const lock = Bun.JSONC.parse(await readFile(new URL('bun.lock', root), 'utf8'));
+assert.deepEqual(lock.workspaces['plugins/encbird'].dependencies, pluginPackage.dependencies);
+assert.deepEqual(lock.workspaces['plugins/encbird'].devDependencies, pluginPackage.devDependencies);
 assert.equal((await json('.agents/plugins/marketplace.json', root)).plugins[0].source.path, './plugins/encbird');
 assert.equal((await json('.claude-plugin/marketplace.json', root)).plugins[0].source, './plugins/encbird');
 const contract = await json('contracts/tools.json');
@@ -84,6 +100,9 @@ const hash = async file => createHash('sha256').update(await readFile(new URL(fi
 assert.equal(build.contractsSha256, await hash('contracts/tools.json'));
 assert.equal(build.bundleSha256, await hash('dist/index.js'));
 assert.equal(build.cliSha256, await hash('dist/cli.js'));
+assert.equal(build.bun, pluginPackage.engines.bun);
+assert.equal(build.builtWithBun, bunVersion);
+assert.deepEqual(build.dependencies, pluginPackage.dependencies);
 await access(new URL('skills/encbird-learning/scripts/encbird.mjs', plugin));
 await access(new URL('dist/THIRD_PARTY_LICENSES.txt', plugin));
 await access(new URL('skills/encbird-learning/SKILL.md', plugin));

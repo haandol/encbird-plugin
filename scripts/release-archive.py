@@ -15,9 +15,9 @@ from lib.doc_links import require_document_links
 
 REPO = 'haandol/encbird-plugin'
 ROOT_FILES = {'README.md', 'LICENSE', 'NOTICE', '.agents/plugins/marketplace.json', '.claude-plugin/marketplace.json'}
-PLUGIN_FILES = {'package.json', 'plugin.json', 'mcp.json', '.mcp.json', 'README.md', 'LICENSE', 'NOTICE'}
+PLUGIN_FILES = {'package.json', 'bunfig.toml', 'plugin.json', 'mcp.json', '.mcp.json', 'README.md', 'LICENSE', 'NOTICE'}
 PLUGIN_DIRS = {'assets', 'dist', 'skills', 'contracts', '.codex-plugin', '.claude-plugin'}
-VERSION_FILES = ['package.json', 'package-lock.json', 'plugins/encbird/package.json',
+VERSION_FILES = ['package.json', 'bun.lock', 'plugins/encbird/package.json',
                  'plugins/encbird/plugin.json', 'plugins/encbird/.codex-plugin/plugin.json',
                  'plugins/encbird/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json']
 
