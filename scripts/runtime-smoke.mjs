@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   assertUnchanged, requireCommittedSource, requireContainer, requireNoPublicationCredentials,
-  sourceState, verificationEnvironment,
+  runtimePreloadVariables, sourceState, verificationEnvironment,
 } from './check-source.mjs';
 
 async function copyInstallation(source, target) {
@@ -121,9 +121,7 @@ export async function smokeInstalledPlugin(root, { env, timeoutMs = 10_000 } = {
       ENCBIRD_API_BASE_URL: 'http://127.0.0.1:1/v1/mcp-learning',
       ENCBIRD_CREDENTIALS_DIR: join(scratch, 'credentials'), ENCBIRD_AUTH_SCOPE: 'installed-smoke',
     };
-    delete childEnv.NODE_PATH;
-    delete childEnv.NODE_OPTIONS;
-    delete childEnv.BUN_OPTIONS;
+    for (const name of runtimePreloadVariables) delete childEnv[name];
     requireNoPublicationCredentials(childEnv);
     // A host may start the plugin from any project; that project's Bun preload must not run in the plugin.
     const preloaded = join(scratch, 'project-preload-ran');
@@ -132,7 +130,9 @@ export async function smokeInstalledPlugin(root, { env, timeoutMs = 10_000 } = {
     const manifest = JSON.parse(await readFile(join(installed, 'mcp.json'), 'utf8')).mcpServers.encbird;
     assert.equal(manifest.command, 'bun', 'Installed MCP must launch with Bun');
     const serverArgs = manifest.args.map(arg => arg.replaceAll('${PLUGIN_ROOT}', installed));
-    const cliArgs = file => ['--no-env-file', `--config=${join(installed, 'bunfig.toml')}`, join(installed, file)];
+    assert.equal(serverArgs.at(-1), join(installed, 'dist/index.js'), 'Installed MCP must launch its bundled entry point');
+    // The skill CLI uses the same Bun options as the host launch, with its own entry point.
+    const cliArgs = file => [...serverArgs.slice(0, -1), join(installed, file)];
     const launch = (args) => {
       const process = startProcess(args, scratch, childEnv, timeoutMs);
       processes.push(process);

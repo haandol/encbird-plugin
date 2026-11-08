@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,6 +47,7 @@ async function main() {
   validateOrigin();
   if (git('rev-parse', `${commit}^{commit}`) !== commit) throw new Error('COMMIT_SHA must identify the exact source commit.');
   const { assertVersions } = await import('./lib/version.mjs');
+  const { verificationEnvironment } = await import('./check-source.mjs');
   const scratch = await mkdtemp(join(tmpdir(), 'encbird-release-'));
   try {
     archive('versions', root, version, commit, scratch);
@@ -60,13 +61,10 @@ async function main() {
     if (await assertVersions(root) !== version) throw new Error('Working tree version differs.');
     const notes = resolve(argument);
     if (!(await readFile(notes, 'utf8')).trim()) throw new Error('Reviewed release notes must not be empty.');
-    // Build code receives a token-free environment and isolated Bun cache/XDG configuration.
-    const env = {
-      PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: scratch, LANG: 'C.UTF-8', CI: 'true',
-      XDG_CONFIG_HOME: join(scratch, 'config'), XDG_CACHE_HOME: join(scratch, 'cache'),
-      BUN_INSTALL_CACHE_DIR: join(scratch, 'bun-cache'), BUN_RUNTIME_TRANSPILER_CACHE_PATH: '0', DO_NOT_TRACK: '1',
-    };
-    execFileSync('bun', ['run', 'check'], { cwd: root, env, stdio: 'inherit' });
+    // Build code receives the same token-free, isolated environment as local verification.
+    const isolated = await verificationEnvironment();
+    try { execFileSync('bun', ['run', 'check'], { cwd: root, env: isolated.env, stdio: 'inherit' }); }
+    finally { await isolated.cleanup(); }
     cleanHead(commit, version);
     if (await assertVersions(root) !== version) throw new Error('Build changed the product version.');
     const checksum = archive('create', root, version, commit, notes);

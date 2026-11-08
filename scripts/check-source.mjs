@@ -10,6 +10,9 @@ export const publicationCredentialNames = [
   'NPM_TOKEN', 'NPM_CONFIG_TOKEN', 'NODE_AUTH_TOKEN',
 ];
 
+// Startup options that can load code into a child runtime before its entry point runs.
+export const runtimePreloadVariables = ['NODE_OPTIONS', 'NODE_PATH', 'BUN_OPTIONS'];
+
 export function hasPublicationCredentials(env = process.env) {
   return publicationCredentialNames.some(name => Boolean(env[name]));
 }

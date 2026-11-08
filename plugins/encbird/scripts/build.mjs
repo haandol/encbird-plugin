@@ -39,4 +39,5 @@ for (const input of inputs.filter(path => path.includes('node_modules/'))) {
     directory = dirname(directory);
   }
 }
-await writeFile('dist/THIRD_PARTY_LICENSES.txt', [...[...notices.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([, notice]) => notice)].join('\n\n') + '\n');
+const byName = ([a], [b]) => a < b ? -1 : a > b ? 1 : 0;
+await writeFile('dist/THIRD_PARTY_LICENSES.txt', [...notices].sort(byName).map(([, notice]) => notice).join('\n\n') + '\n');

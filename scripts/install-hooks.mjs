@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, writeFile, lstat, rename, chmod, copyFile, realpath, readlink } from 'node:fs/promises';
 import { basename, dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { publicationCredentialNames } from './check-source.mjs';
+import { publicationCredentialNames, runtimePreloadVariables } from './check-source.mjs';
 const signature = '# EncBird Docker-only pre-push v4';
 const ownedSignatures = [signature, '# EncBird Docker-only pre-push v3', '# EncBird Docker-only pre-push v2', '# EncBird Docker-only pre-push v1'];
 const git = (...args) => execFileSync('git', args, {encoding:'utf8'}).trim();
@@ -47,7 +47,7 @@ try {
   }
 } catch (error) { if (error.code !== 'ENOENT') throw error; }
 const credentialPresence = publicationCredentialNames.map(name => '${' + name + ':+x}').join('');
-const childSecrets = [...publicationCredentialNames, 'NODE_OPTIONS', 'NODE_PATH', 'BUN_OPTIONS'].join(' ');
+const childSecrets = [...publicationCredentialNames, ...runtimePreloadVariables].join(' ');
 const script = `#!/bin/sh
 ${signature}
 set -eu

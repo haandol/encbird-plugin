@@ -124,7 +124,7 @@ async function fixture(t, { checkCode = '', prepare = true } = {}) {
     PATH: bin + ':' + process.env.PATH, GH_TOKEN: 'fixture-token-never-real', GITHUB_TOKEN: 'fixture-token-never-real', AWS_SECRET_ACCESS_KEY: 'fixture-secret',
   });
   const git = (...args) => execFileSync(env.TEST_REAL_GIT, args, { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-  for (const name of ['prepare-release.mjs', 'publish-release.sh', 'push-version.sh', 'require-container.sh', 'release-archive.py', 'verification-policy.json', 'lib/version.mjs', 'lib/__init__.py', 'lib/doc_links.py']) {
+  for (const name of ['prepare-release.mjs', 'check-source.mjs', 'publish-release.sh', 'push-version.sh', 'require-container.sh', 'release-archive.py', 'verification-policy.json', 'lib/version.mjs', 'lib/__init__.py', 'lib/doc_links.py']) {
     await cp(join(scripts, name), join(root, 'scripts', name));
   }
   const files = {
