@@ -93,6 +93,14 @@ gh auth token | docker exec -i CONTAINER_ID \
 
 The managed ruleset requires a pull request, resolved review threads, current successful checks, and protection against branch deletion and non-fast-forward updates. It adds no bypass actor. Existing stronger rules remain in place. Do not require contexts that have never run successfully, and do not report protection as active merely because its local plan or fixture tests passed. Adding these files does not itself publish CI or change GitHub settings.
 
+## Dependency vulnerability audit
+
+GitHub's dependency graph does not read `bun.lock`, and Dependabot supports only version updates for Bun, so neither reports advisories for transitive packages. The [dependency audit workflow](../.github/workflows/dependency-audit.yaml) runs `bun run audit:deps` (`bun audit`) in the project image every Monday at 03:23 UTC and on manual dispatch. It checks every package recorded in `bun.lock` against the npm advisory database without installing dependencies, reports every severity, and fails if any advisory remains or the checkout changes.
+
+The audit is monitoring, not a required check: it is absent from the [verification policy](../scripts/verification-policy.json), never runs on pushes or pull requests, and has only `contents: read`. A new advisory therefore cannot block an unrelated merge or release, and a passing audit does not prove the absence of unpublished vulnerabilities. GitHub notifies the user who last changed the schedule about failed scheduled runs, and it disables schedules after 60 days without repository activity; re-enable the workflow if that happens.
+
+To resolve a failure, run `bun run audit:deps` in the container, update the affected dependency within the plugin's pinned versions or with `bun audit fix`, rebuild the bundle, and land the change through the normal review path with full verification. Do not suppress an advisory with `--ignore` unless its exposure has been reviewed and recorded with the change.
+
 ## Failure handling and verification limits
 
 If the installed runtime fails, fix and review the bundle or script entry point before rechecking. If the build changes committed output, rebuild intentionally and commit the resulting files; rerunning a check against its repaired working tree does not validate the earlier commit. Source changes during checking invalidate that run's receipt.

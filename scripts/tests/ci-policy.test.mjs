@@ -19,3 +19,16 @@ test('CI verifies every branch and PR without a redundant tag-push run during pu
   assert.match(workflow,/on:\n  push:\n    branches: \['\*\*'\]\n  pull_request:\n  workflow_dispatch:/);
   assert.doesNotMatch(workflow,/^    (?:tags|paths|paths-ignore):/m);
 });
+
+test('the dependency audit monitors every locked package on a schedule without gating merges', async () => {
+  const workflow = await readFile('.github/workflows/dependency-audit.yaml', 'utf8');
+  const policy = JSON.parse(await readFile('scripts/verification-policy.json', 'utf8'));
+  const scripts = JSON.parse(await readFile('package.json', 'utf8')).scripts;
+  assert.match(workflow, /\non:\n  schedule:\n    - cron: '[^']+'\n  workflow_dispatch:\n\npermissions:\n  contents: read\n/);
+  assert.doesNotMatch(workflow, /^\s+(?:push|pull_request|pull_request_target):/m);
+  assert.match(workflow, /persist-credentials: false/);
+  assert.match(workflow, /encbird-plugin-check bun run audit:deps\n/);
+  assert.match(workflow, /test -z "\$\(git status --porcelain --untracked-files=all\)"/);
+  assert(!Object.values(policy.checks).includes('dependency-audit'), 'The audit is monitoring, not a required check');
+  assert.equal(scripts['audit:deps'], 'bun audit', 'Every severity is reported and nothing is rewritten');
+});
