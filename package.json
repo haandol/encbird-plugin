@@ -21,6 +21,7 @@
     "test:runtime": "bun scripts/runtime-smoke.mjs",
     "test:eval": "bun test --timeout 60000 evals/tests/*.test.mjs",
     "validate:docs": "bun scripts/validate-doc-links.mjs",
+    "audit:deps": "bun audit",
     "eval:skills": "bun evals/run.mjs",
     "ci:protect": "bun scripts/configure-main-protection.mjs",
     "version:check": "bun scripts/version.mjs check",

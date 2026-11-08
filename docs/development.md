@@ -32,6 +32,7 @@ The commands in the [root package.json](../package.json) separate these responsi
 | `bun run check:test` | Version/type checks, runtime and release fixtures, deterministic behavior-evaluation tests, document links, contracts and distribution hashes |
 | `bun run check:build` / `bun run test:runtime` | The installed MCP and script entry points without development dependencies; build also verifies regeneration leaves source unchanged |
 | `bun run check:push` | Fresh locked dependencies and full verification of clean committed source, followed by a matching local receipt |
+| `bun run audit:deps` | Check every package in `bun.lock` against published advisories; the scheduled audit workflow runs the same command |
 | `bun run eval:skills -- --prepare` | Prepare synthetic behavior cases with no model calls; the report remains NOT RUN |
 
 Type checking and build commands are defined in the [plugin package.json](../plugins/encbird/package.json). Tests live in [test/](../plugins/encbird/test/); distribution checks are implemented in [validate.mjs](../scripts/validate.mjs).

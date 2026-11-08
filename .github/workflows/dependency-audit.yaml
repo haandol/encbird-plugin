@@ -1,0 +1,34 @@
+name: Dependency audit
+
+# GitHub's dependency graph and Dependabot do not read bun.lock, so audit every locked package here.
+on:
+  schedule:
+    - cron: '23 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: dependency-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build the project verification image
+        run: docker build --tag encbird-plugin-check .devcontainer
+      # bun audit opens the manifest for writing, so mount it writable and prove nothing changed.
+      - name: Audit all locked dependencies without installing them
+        run: >-
+          docker run --rm --init --user "$(id -u):$(id -g)"
+          --volume "$GITHUB_WORKSPACE:/workspaces/encbird-plugin"
+          encbird-plugin-check bun run audit:deps
+      - name: Require the audit to leave the checkout unchanged
+        run: test -z "$(git status --porcelain --untracked-files=all)"
